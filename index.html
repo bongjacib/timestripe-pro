@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeStripe Pro - Personal Productivity Planner</title>
+    <meta name="description" content="Advanced time management and productivity planning application">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body data-theme="light">
+    <!-- Navigation Modal -->
+    <div id="nav-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('nav-modal')">&times;</span>
+            <h3><i class="fas fa-bars"></i> Quick Navigation</h3>
+            <div class="modal-nav">
+                <button class="nav-btn" onclick="app.switchView('horizons')">
+                    <i class="fas fa-layer-group"></i> Horizons
+                </button>
+                <button class="nav-btn" onclick="app.switchView('calendar')">
+                    <i class="fas fa-calendar"></i> Calendar
+                </button>
+                <button class="nav-btn" onclick="app.switchView('habits')">
+                    <i class="fas fa-sync-alt"></i> Habits
+                </button>
+                <button class="nav-btn" onclick="app.switchView('goals')">
+                    <i class="fas fa-bullseye"></i> Goals
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Modal -->
+    <div id="quick-add-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('quick-add-modal')">&times;</span>
+            <h3><i class="fas fa-plus"></i> Quick Add</h3>
+            <div class="quick-add-options">
+                <button class="add-option" onclick="app.openTaskModal()">
+                    <i class="fas fa-tasks"></i>
+                    <span>Task</span>
+                </button>
+                <button class="add-option" onclick="app.openHabitModal()">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Habit</span>
+                </button>
+                <button class="add-option" onclick="app.openGoalModal()">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Goal</span>
+                </button>
+                <button class="add-option" onclick="app.openNoteModal()">
+                    <i class="fas fa-sticky-note"></i>
+                    <span>Note</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('task-modal')">&times;</span>
+            <h3><i class="fas fa-tasks"></i> <span id="task-modal-title">Add Task</span></h3>
+            <form id="task-form">
+                <div class="form-group">
+                    <label for="task-title">Title *</label>
+                    <input type="text" id="task-title" required placeholder="What needs to be done?">
+                </div>
+                <div class="form-group">
+                    <label for="task-description">Description</label>
+                    <textarea id="task-description" placeholder="Additional details..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="task-date">Due Date</label>
+                        <input type="date" id="task-date">
+                    </div>
+                    <div class="form-group">
+                        <label for="task-time">Time (Optional)</label>
+                        <input type="time" id="task-time">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="task-horizon">Time Horizon *</label>
+                    <select id="task-horizon" required>
+                        <option value="">Select a horizon...</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="year">This Year</option>
+                        <option value="life">Life Goal</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="task-priority">Priority</label>
+                    <select id="task-priority">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <input type="hidden" id="edit-task-id">
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="app.closeModal('task-modal')">Cancel</button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i> <span id="task-submit-text">Add Task</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('settings-modal')">&times;</span>
+            <h3><i class="fas fa-cog"></i> Settings</h3>
+            <div class="settings-content">
+                <div class="setting-group">
+                    <h4>Application</h4>
+                    <div class="setting-item">
+                        <label for="auto-save">Auto-save changes</label>
+                        <input type="checkbox" id="auto-save" checked>
+                    </div>
+                    <div class="setting-item">
+                        <label for="notifications">Enable notifications</label>
+                        <input type="checkbox" id="notifications">
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h4>Data Management</h4>
+                    <div class="setting-actions">
+                        <button class="btn-secondary" onclick="app.exportData()">
+                            <i class="fas fa-download"></i> Export Data
+                        </button>
+                        <button class="btn-secondary" onclick="app.importData()">
+                            <i class="fas fa-upload"></i> Import Data
+                        </button>
+                        <button class="btn-danger" onclick="app.clearData()">
+                            <i class="fas fa-trash"></i> Clear All Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Mobile Header -->
+        <header class="mobile-header">
+            <button class="mobile-menu-btn" onclick="app.toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1 class="mobile-title">TimeStripe</h1>
+            <button class="mobile-add-btn" onclick="app.openQuickAdd()">
+                <i class="fas fa-plus"></i>
+            </button>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar" id="main-sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-stream"></i> TimeStripe</h1>
+                <div class="sidebar-subtitle">Productivity Planner</div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>HORIZONS</h3>
+                <div class="sidebar-item active" data-view="horizons">
+                    <i class="fas fa-clock"></i>
+                    <span>Hours</span>
+                </div>
+                <div class="sidebar-item" data-view="days">
+                    <i class="fas fa-calendar-day"></i>
+                    <span>Days</span>
+                </div>
+                <div class="sidebar-item" data-view="weeks">
+                    <i class="fas fa-calendar-week"></i>
+                    <span>Weeks</span>
+                </div>
+                <div class="sidebar-item" data-view="months">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Months</span>
+                </div>
+                <div class="sidebar-item" data-view="years">
+                    <i class="fas fa-calendar-star"></i>
+                    <span>Years</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>PINNED</h3>
+                <div class="sidebar-item" data-view="pinned">
+                    <i class="fas fa-thumbtack"></i>
+                    <span>Start here!</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>FAVORITES</h3>
+                <div class="sidebar-item" data-view="notes">
+                    <i class="fas fa-sticky-note"></i>
+                    <span>Notes</span>
+                </div>
+                <div class="sidebar-item" data-view="boards">
+                    <i class="fas fa-columns"></i>
+                    <span>Boards</span>
+                </div>
+                <div class="sidebar-item" data-view="docs">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Docs</span>
+                </div>
+                <div class="sidebar-item" data-view="tasks">
+                    <i class="fas fa-tasks"></i>
+                    <span>Tasks</span>
+                </div>
+                <div class="sidebar-item" data-view="workouts">
+                    <i class="fas fa-dumbbell"></i>
+                    <span>Workout Routines</span>
+                </div>
+                <div class="sidebar-item" data-view="okr">
+                    <i class="fas fa-bullseye"></i>
+                    <span>OKR 101</span>
+                </div>
+                <div class="sidebar-item" onclick="app.openQuickAdd()">
+                    <i class="fas fa-plus"></i>
+                    <span>Add...</span>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="theme-toggle" onclick="app.toggleTheme()">
+                    <i class="fas fa-moon"></i>
+                    <span>Dark Mode</span>
+                </button>
+                <div class="user-profile">
+                    <div class="user-avatar">U</div>
+                    <div class="user-info">
+                        <div class="user-name">User</div>
+                        <div class="user-status">Pro Member</div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Desktop Header -->
+            <header class="content-header">
+                <div class="header-left">
+                    <h2 id="current-view-title">Horizons</h2>
+                    <div class="date-display" id="current-date"></div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" onclick="app.openQuickAdd()" title="Quick Add (Ctrl+N)">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="header-btn" id="search-btn" title="Search (Ctrl+K)">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="header-btn" onclick="app.openSettings()" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Horizons View -->
+            <div id="horizons-view" class="view active">
+                <div class="view-header">
+                    <h3>Time Horizons</h3>
+                    <p>Organize your tasks across different time perspectives</p>
+                </div>
+                <div class="time-horizons">
+                    <!-- Today Section -->
+                    <section class="time-section" data-horizon="today">
+                        <div class="section-header">
+                            <h4><i class="fas fa-sun"></i> Today</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('today')" title="Add task for today">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="today-tasks">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+
+                    <!-- This Week Section -->
+                    <section class="time-section" data-horizon="week">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-week"></i> This Week</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('week')" title="Add task for this week">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="week-tasks">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+
+                    <!-- This Month Section -->
+                    <section class="time-section" data-horizon="month">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-alt"></i> This Month</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('month')" title="Add task for this month">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="month-tasks">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+
+                    <!-- This Year Section -->
+                    <section class="time-section" data-horizon="year">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-star"></i> This Year</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('year')" title="Add task for this year">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="year-tasks">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+
+                    <!-- Life Goals Section -->
+                    <section class="time-section" data-horizon="life">
+                        <div class="section-header">
+                            <h4><i class="fas fa-infinity"></i> Life Goals</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('life')" title="Add life goal">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="life-tasks">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Other Views -->
+            <div id="days-view" class="view">
+                <div class="view-placeholder">
+                    <i class="fas fa-calendar-day fa-3x"></i>
+                    <h3>Days View</h3>
+                    <p>Daily planning and scheduling</p>
+                </div>
+            </div>
+
+            <div id="weeks-view" class="view">
+                <div class="view-placeholder">
+                    <i class="fas fa-calendar-week fa-3x"></i>
+                    <h3>Weeks View</h3>
+                    <p>Weekly overview and planning</p>
+                </div>
+            </div>
+
+            <div id="months-view" class="view">
+                <div class="view-placeholder">
+                    <i class="fas fa-calendar-alt fa-3x"></i>
+                    <h3>Months View</h3>
+                    <p>Monthly goals and milestones</p>
+                </div>
+            </div>
+
+            <div id="years-view" class="view">
+                <div class="view-placeholder">
+                    <i class="fas fa-calendar-star fa-3x"></i>
+                    <h3>Years View</h3>
+                    <p>Annual objectives and planning</p>
+                </div>
+            </div>
+
+            <div id="habits-view" class="view">
+                <div class="view-placeholder">
+                    <i class="fas fa-sync-alt fa-3x"></i>
+                    <h3>Habits View</h3>
+                    <p>Track your daily routines and build streaks</p>
+                </div>
+            </div>
+
+            <div id="goals-view" class="view">
+                <div class="view-placeholder">
+                    <i class="fas fa-bullseye fa-3x"></i>
+                    <h3>Goals View</h3>
+                    <p>Set and track your long-term objectives</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab" onclick="app.openQuickAdd()" title="Add New Item (Ctrl+N)">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- Notification System -->
+    <div id="notification" class="notification hidden">
+        <div class="notification-content">
+            <i class="notification-icon"></i>
+            <span id="notification-message"></span>
+            <button onclick="app.hideNotification()">&times;</button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading...</div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
