@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TimeStripe Pro - Personal Productivity Planner</title>
+    <title>TimeStripe Pro - Cascading Time Horizons</title>
     <meta name="description" content="Advanced time management with cascading horizons">
     <meta name="theme-color" content="#2563eb">
     <link rel="manifest" href="manifest.json">
@@ -11,7 +11,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body data-theme="light">
-    <!-- Task Modal -->
+    <!-- Navigation Modal -->
+    <div id="nav-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('nav-modal')">&times;</span>
+            <h3><i class="fas fa-bars"></i> Quick Navigation</h3>
+            <div class="modal-nav">
+                <button class="nav-btn" onclick="app.switchView('horizons')">
+                    <i class="fas fa-layer-group"></i> Horizons
+                </button>
+                <button class="nav-btn" onclick="app.switchView('cascade')">
+                    <i class="fas fa-stream"></i> Cascade View
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal with Cascading Options -->
     <div id="task-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="app.closeModal('task-modal')">&times;</span>
@@ -28,14 +44,26 @@
                 
                 <div class="form-group">
                     <label for="task-horizon">Time Horizon *</label>
-                    <select id="task-horizon" required>
+                    <select id="task-horizon" required onchange="app.updateCascadeOptions()">
                         <option value="">Select a horizon...</option>
-                        <option value="today">Today</option>
-                        <option value="week">This Week</option>
-                        <option value="month">This Month</option>
-                        <option value="year">This Year</option>
+                        <option value="hours">Hours</option>
+                        <option value="days">Days</option>
+                        <option value="weeks">Weeks</option>
+                        <option value="months">Months</option>
+                        <option value="years">Years</option>
                         <option value="life">Life</option>
                     </select>
+                </div>
+
+                <div class="form-group" id="cascade-group">
+                    <label>Cascade to:</label>
+                    <div class="cascade-options">
+                        <label><input type="checkbox" name="cascade" value="days"> Days</label>
+                        <label><input type="checkbox" name="cascade" value="weeks"> Weeks</label>
+                        <label><input type="checkbox" name="cascade" value="months"> Months</label>
+                        <label><input type="checkbox" name="cascade" value="years"> Years</label>
+                        <label><input type="checkbox" name="cascade" value="life"> Life</label>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -74,20 +102,12 @@
         <nav class="sidebar" id="main-sidebar">
             <div class="sidebar-header">
                 <h1><i class="fas fa-stream"></i> TimeStripe</h1>
-                <div class="sidebar-subtitle">Productivity Planner</div>
+                <div class="sidebar-subtitle">Cascading Horizons</div>
             </div>
 
             <div class="sidebar-section">
                 <h3>HORIZONS</h3>
                 <div class="sidebar-item active" data-view="horizons">
-                    <i class="fas fa-layer-group"></i>
-                    <span>Horizons</span>
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>NAVIGATION</h3>
-                <div class="sidebar-item" data-view="hours">
                     <i class="fas fa-clock"></i>
                     <span>Hours</span>
                 </div>
@@ -107,6 +127,18 @@
                     <i class="fas fa-calendar-star"></i>
                     <span>Years</span>
                 </div>
+                <div class="sidebar-item" data-view="life">
+                    <i class="fas fa-infinity"></i>
+                    <span>Life</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>VIEWS</h3>
+                <div class="sidebar-item" data-view="cascade">
+                    <i class="fas fa-stream"></i>
+                    <span>Cascade View</span>
+                </div>
             </div>
 
             <div class="sidebar-section">
@@ -117,50 +149,11 @@
                 </div>
             </div>
 
-            <div class="sidebar-section">
-                <h3>FAVORITES</h3>
-                <div class="sidebar-item" data-view="notes">
-                    <i class="fas fa-sticky-note"></i>
-                    <span>Notes</span>
-                </div>
-                <div class="sidebar-item" data-view="boards">
-                    <i class="fas fa-columns"></i>
-                    <span>Boards</span>
-                </div>
-                <div class="sidebar-item" data-view="docs">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Docs</span>
-                </div>
-                <div class="sidebar-item" data-view="tasks">
-                    <i class="fas fa-tasks"></i>
-                    <span>Tasks</span>
-                </div>
-                <div class="sidebar-item" data-view="workouts">
-                    <i class="fas fa-dumbbell"></i>
-                    <span>Workout Routines</span>
-                </div>
-                <div class="sidebar-item" data-view="okr">
-                    <i class="fas fa-bullseye"></i>
-                    <span>OKR 101</span>
-                </div>
-                <div class="sidebar-item" onclick="app.openTaskModal()">
-                    <i class="fas fa-plus"></i>
-                    <span>Add...</span>
-                </div>
-            </div>
-
             <div class="sidebar-footer">
                 <button class="theme-toggle" onclick="app.toggleTheme()">
                     <i class="fas fa-moon"></i>
                     <span>Dark Mode</span>
                 </button>
-                <div class="user-profile">
-                    <div class="user-avatar">U</div>
-                    <div class="user-info">
-                        <div class="user-name">User</div>
-                        <div class="user-status">Pro Member</div>
-                    </div>
-                </div>
             </div>
         </nav>
 
@@ -168,7 +161,7 @@
         <main class="main-content">
             <header class="content-header">
                 <div class="header-left">
-                    <h2 id="current-view-title">Horizons</h2>
+                    <h2 id="current-view-title">Cascading Horizons</h2>
                     <div class="date-display" id="current-date"></div>
                 </div>
                 <div class="header-actions">
@@ -181,175 +174,118 @@
                 </div>
             </header>
 
-            <!-- Horizons View (Default View) -->
+            <!-- Cascading Horizons View -->
             <div id="horizons-view" class="view active">
-                <div class="horizons-container">
-                    <!-- Today Section -->
-                    <section class="horizon-panel" data-horizon="today">
-                        <div class="panel-header">
-                            <h3>Today</h3>
-                            <button class="panel-add-btn" onclick="app.addToHorizon('today')">
-                                <i class="fas fa-plus"></i> Add...
+                <div class="cascading-horizons">
+                    <!-- Hours Section -->
+                    <section class="horizon-section" data-horizon="hours">
+                        <div class="section-header">
+                            <h4><i class="fas fa-clock"></i> Hours</h4>
+                            <button class="section-add-btn" onclick="app.addToHorizon('hours')">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="panel-content">
-                            <div class="task-card">
-                                <div class="task-main">Workout Chest, Back and Abs</div>
-                                <div class="task-meta">$100 to $215</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Workout Chest, Back and Abs</div>
-                                <div class="task-meta">$100 to $215</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Start working on target to expand MC Decor 2X from today</div>
-                                <div class="task-meta">Total: 3 in crypto</div>
-                            </div>
+                        <div class="tasks-list" id="hours-tasks">
                         </div>
                     </section>
 
-                    <!-- This Week Section -->
-                    <section class="horizon-panel" data-horizon="week">
-                        <div class="panel-header">
-                            <h3>22–28 Sep</h3>
-                            <button class="panel-add-btn" onclick="app.addToHorizon('week')">
-                                <i class="fas fa-plus"></i> Add...
+                    <!-- Days Section -->
+                    <section class="horizon-section" data-horizon="days">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-day"></i> Days</h4>
+                            <button class="section-add-btn" onclick="app.addToHorizon('days')">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="panel-content">
-                            <div class="task-card">
-                                <div class="task-main">Target week to post all safe items.</div>
-                                <div class="task-meta">Set all safe items at home or FB Marketplace</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Assemble bike</div>
-                                <div class="task-sub">Target week to post all safe items.</div>
-                            </div>
+                        <div class="tasks-list" id="days-tasks">
                         </div>
                     </section>
 
-                    <!-- This Month Section -->
-                    <section class="horizon-panel" data-horizon="month">
-                        <div class="panel-header">
-                            <h3>September</h3>
-                            <button class="panel-add-btn" onclick="app.addToHorizon('month')">
-                                <i class="fas fa-plus"></i> Add...
+                    <!-- Weeks Section -->
+                    <section class="horizon-section" data-horizon="weeks">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-week"></i> Weeks (22–28 Sep)</h4>
+                            <button class="section-add-btn" onclick="app.addToHorizon('weeks')">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="panel-content">
-                            <div class="task-card">
-                                <div class="task-main">Start daily workout routines en route to 60 days</div>
-                                <div class="task-meta">Create Ideal Body in 60 Days until October 30, 2025</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Continue to finish 60 days daily workout without knowing. You are almost there</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Set all saleable items at home or FB Marketplace</div>
-                                <div class="task-meta">Run Aed 900 Income daily from September 01, 2025</div>
-                                <div class="task-sub">Onwards 1 subgoal</div>
-                            </div>
+                        <div class="tasks-list" id="weeks-tasks">
                         </div>
                     </section>
 
-                    <!-- This Year Section -->
-                    <section class="horizon-panel" data-horizon="year">
-                        <div class="panel-header">
-                            <h3>2025</h3>
-                            <button class="panel-add-btn" onclick="app.addToHorizon('year')">
-                                <i class="fas fa-plus"></i> Add...
+                    <!-- Months Section -->
+                    <section class="horizon-section" data-horizon="months">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-alt"></i> September</h4>
+                            <button class="section-add-btn" onclick="app.addToHorizon('months')">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="panel-content">
-                            <div class="task-card">
-                                <div class="task-main">Create Ideal Body in 60 Days until October 30, 2025</div>
-                                <div class="task-sub">Complete Ideal Body 2 subgoals</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Target Closing date of Lava before Dec 31, 2025</div>
-                                <div class="task-meta">Buy a 2023 Toyota Corolla Cross before December 31, 2025</div>
-                                <div class="task-sub">Onwards 1 subgoal</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Run Aed 900 Income daily from September 01, 2025</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Start sending Aed 1800 monthly to family September 30, 2025 onwards</div>
-                            </div>
+                        <div class="tasks-list" id="months-tasks">
                         </div>
                     </section>
 
-                    <!-- Life Goals Section -->
-                    <section class="horizon-panel" data-horizon="life">
-                        <div class="panel-header">
-                            <h3>Life</h3>
-                            <button class="panel-add-btn" onclick="app.addToHorizon('life')">
-                                <i class="fas fa-plus"></i> Add...
+                    <!-- Years Section -->
+                    <section class="horizon-section" data-horizon="years">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-star"></i> 2025</h4>
+                            <button class="section-add-btn" onclick="app.addToHorizon('years')">
+                                <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="panel-content">
-                            <div class="task-card">
-                                <div class="task-main">Maintain Ideal Body</div>
-                                <div class="task-sub">1 subgoal</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Own a 2023 Toyota Corolla Cross by December 31, 2025</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Expand MC Decor 2x May 31, 2026</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Own a Pet Friendly 2 bedroom Apartment worth Aed 12 Million</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Own a 5 story building in the Philippines December 31, 2029</div>
-                            </div>
-                            <div class="task-card">
-                                <div class="task-main">Own a Jolibee franchise December 31, 2031</div>
-                            </div>
+                        <div class="tasks-list" id="years-tasks">
+                        </div>
+                    </section>
+
+                    <!-- Life Section -->
+                    <section class="horizon-section" data-horizon="life">
+                        <div class="section-header">
+                            <h4><i class="fas fa-infinity"></i> Life</h4>
+                            <button class="section-add-btn" onclick="app.addToHorizon('life')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="life-tasks">
                         </div>
                     </section>
                 </div>
             </div>
 
-            <!-- Other Views -->
-            <div id="hours-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-clock fa-3x"></i>
-                    <h3>Hours View</h3>
-                    <p>Hourly planning and scheduling</p>
-                </div>
-            </div>
-
-            <div id="days-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-day fa-3x"></i>
-                    <h3>Days View</h3>
-                    <p>Daily planning and scheduling</p>
-                </div>
-            </div>
-
-            <div id="weeks-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-week fa-3x"></i>
-                    <h3>Weeks View</h3>
-                    <p>Weekly overview and planning</p>
-                </div>
-            </div>
-
-            <div id="months-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-alt fa-3x"></i>
-                    <h3>Months View</h3>
-                    <p>Monthly goals and milestones</p>
-                </div>
-            </div>
-
-            <div id="years-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-star fa-3x"></i>
-                    <h3>Years View</h3>
-                    <p>Annual objectives and planning</p>
+            <!-- Cascade View -->
+            <div id="cascade-view" class="view">
+                <div class="cascade-visualization">
+                    <h3>Task Cascade Flow</h3>
+                    <div class="cascade-flow">
+                        <div class="cascade-level" data-level="life">
+                            <h4>Life Goals</h4>
+                            <div class="cascade-tasks" id="cascade-life"></div>
+                        </div>
+                        <div class="cascade-arrow">↓</div>
+                        <div class="cascade-level" data-level="years">
+                            <h4>Yearly Goals</h4>
+                            <div class="cascade-tasks" id="cascade-years"></div>
+                        </div>
+                        <div class="cascade-arrow">↓</div>
+                        <div class="cascade-level" data-level="months">
+                            <h4>Monthly Goals</h4>
+                            <div class="cascade-tasks" id="cascade-months"></div>
+                        </div>
+                        <div class="cascade-arrow">↓</div>
+                        <div class="cascade-level" data-level="weeks">
+                            <h4>Weekly Goals</h4>
+                            <div class="cascade-tasks" id="cascade-weeks"></div>
+                        </div>
+                        <div class="cascade-arrow">↓</div>
+                        <div class="cascade-level" data-level="days">
+                            <h4>Daily Tasks</h4>
+                            <div class="cascade-tasks" id="cascade-days"></div>
+                        </div>
+                        <div class="cascade-arrow">↓</div>
+                        <div class="cascade-level" data-level="hours">
+                            <h4>Hourly Tasks</h4>
+                            <div class="cascade-tasks" id="cascade-hours"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
