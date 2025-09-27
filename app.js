@@ -1,165 +1,227 @@
-// TimeStripe Pro - Enhanced with Horizon Cascade Functionality
+// TimeStripe Pro - Cascading Horizons App
 class TimeStripeApp {
     constructor() {
-        this.currentView = 'hours';
+        this.currentView = 'horizons';
         this.currentTheme = this.loadTheme();
         this.data = this.loadData();
-        this.isInitialized = false;
-        this.pendingActions = [];
-        
-        // Horizon cascade hierarchy
-        this.horizonHierarchy = {
-            'hours': ['days', 'weeks', 'months', 'years'],    // Hours appear in all larger horizons
-            'days': ['weeks', 'months', 'years'],             // Days appear in weeks, months, years
-            'weeks': ['months', 'years'],                     // Weeks appear in months, years
-            'months': ['years'],                              // Months appear in years
-            'years': [],                                      // Years don't cascade further
-            'life': []                                        // Life goals are separate
-        };
-        
-        this.horizonNames = {
-            'hours': 'Hours',
-            'days': 'Days', 
-            'weeks': 'Weeks',
-            'months': 'Months',
-            'years': 'Years',
-            'life': 'Life Goals'
-        };
-        
-        this.bindMethods();
         this.init();
     }
 
-    bindMethods() {
-        this.handleClick = this.handleClick.bind(this);
-        this.handleKeyDown = this.handleKeyDown.bind(this);
-        this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
-    }
-
     init() {
-        try {
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.initializeApp());
-            } else {
-                this.initializeApp();
-            }
-        } catch (error) {
-            this.handleCriticalError('Initialization failed', error);
-        }
-    }
-
-    initializeApp() {
-        console.log('🚀 TimeStripe Pro with Cascade initialized...');
-        
         this.applyTheme();
         this.bindEvents();
-        this.validateDataStructure();
         this.setupSampleData();
         this.updateDateDisplay();
         this.renderCurrentView();
-        this.setupServiceWorker();
-        this.processPendingActions();
         
-        this.isInitialized = true;
-        console.log('✅ TimeStripe Pro with Cascade ready!');
-        
+        // Show welcome message
         setTimeout(() => {
-            this.showNotification('Tasks now cascade upward! Hours → Days → Weeks → Months → Years', 'success', 5000);
+            this.showNotification('TimeStripe Pro with Cascading Horizons is ready!', 'success');
         }, 1000);
     }
 
-    // Enhanced task filtering with cascade
-    getTasksForHorizon(horizon) {
-        if (!this.data.tasks) return [];
-        
-        const tasks = this.data.tasks.filter(task => 
-            !task.completed && this.shouldTaskAppearInHorizon(task, horizon)
-        );
-        
-        // Sort by priority and creation date
-        return tasks.sort((a, b) => {
-            const priorityOrder = { high: 3, medium: 2, low: 1 };
-            const aPriority = priorityOrder[a.priority] || 1;
-            const bPriority = priorityOrder[b.priority] || 1;
-            
-            if (aPriority !== bPriority) return bPriority - aPriority;
-            return new Date(b.createdAt) - new Date(a.createdAt);
+    // Theme Management
+    loadTheme() {
+        const saved = localStorage.getItem('timestripe-theme');
+        return saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+
+    applyTheme() {
+        document.body.setAttribute('data-theme', this.currentTheme);
+    }
+
+    toggleTheme() {
+        this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+        this.applyTheme();
+        localStorage.setItem('timestripe-theme', this.currentTheme);
+    }
+
+    // Data Management
+    loadData() {
+        const saved = localStorage.getItem('timestripe-data');
+        return saved ? JSON.parse(saved) : this.getDefaultData();
+    }
+
+    getDefaultData() {
+        return {
+            version: '2.0.0',
+            tasks: [],
+            lastSaved: new Date().toISOString()
+        };
+    }
+
+    saveData() {
+        this.data.lastSaved = new Date().toISOString();
+        localStorage.setItem('timestripe-data', JSON.stringify(this.data));
+    }
+
+    setupSampleData() {
+        if (this.data.tasks.length === 0) {
+            this.data.tasks = [
+                {
+                    id: '1',
+                    title: 'Workout Chest, Back and Abs',
+                    description: 'Complete morning workout routine',
+                    meta: '$100 to $215',
+                    horizon: 'hours',
+                    priority: 'medium',
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    cascadesTo: ['days']
+                },
+                {
+                    id: '2',
+                    title: 'Target week to post all safe items',
+                    description: 'Set all safe items at home or FB Marketplace',
+                    horizon: 'weeks',
+                    priority: 'high',
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    cascadesTo: ['months']
+                },
+                {
+                    id: '3',
+                    title: 'Start daily workout routines en route to 60 days',
+                    description: 'Create Ideal Body in 60 Days until October 30, 2025',
+                    horizon: 'months',
+                    priority: 'medium',
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    cascadesTo: ['years']
+                },
+                {
+                    id: '4',
+                    title: 'Create Ideal Body in 60 Days until October 30, 2025',
+                    horizon: 'years',
+                    priority: 'high',
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    cascadesTo: ['life']
+                },
+                {
+                    id: '5',
+                    title: 'Buy a 2023 Toyota Corolla Cross by December 31, 2025',
+                    horizon: 'years',
+                    priority: 'medium',
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: '6',
+                    title: 'Maintain Ideal Body',
+                    horizon: 'life',
+                    priority: 'low',
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                }
+            ];
+            this.saveData();
+        }
+    }
+
+    // Event Binding
+    bindEvents() {
+        // Task form
+        document.getElementById('task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveTask();
+        });
+
+        // Click handlers
+        document.addEventListener('click', (e) => {
+            // Sidebar navigation
+            if (e.target.closest('.sidebar-item[data-view]')) {
+                const view = e.target.closest('.sidebar-item[data-view]').dataset.view;
+                this.switchView(view);
+            }
+
+            // Task completion
+            if (e.target.type === 'checkbox' && e.target.closest('.task-checkbox')) {
+                this.toggleTaskCompletion(e.target);
+            }
+
+            // Modal close
+            if (e.target.classList.contains('modal')) {
+                this.closeModal(e.target.id);
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                this.openTaskModal();
+            }
+            if (e.key === 'Escape') {
+                this.closeAllModals();
+            }
         });
     }
 
-    shouldTaskAppearInHorizon(task, targetHorizon) {
-        // If task is specifically for this horizon, always show it
-        if (task.horizon === targetHorizon) return true;
-        
-        // If task is for a smaller horizon, check if it cascades to this one
-        if (this.doesHorizonCascadeTo(task.horizon, targetHorizon)) {
-            return task.cascade !== false; // Respect cascade setting
+    // View Management
+    switchView(viewName) {
+        if (!viewName || viewName === this.currentView) return;
+
+        // Update sidebar
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        document.querySelector(`[data-view="${viewName}"]`).classList.add('active');
+
+        // Update views
+        document.querySelectorAll('.view').forEach(view => {
+            view.classList.remove('active');
+        });
+        document.getElementById(`${viewName}-view`).classList.add('active');
+
+        this.currentView = viewName;
+        this.renderCurrentView();
+
+        // Close mobile sidebar
+        if (window.innerWidth <= 768) {
+            this.toggleMobileMenu(false);
         }
+    }
+
+    renderCurrentView() {
+        if (this.currentView === 'horizons') {
+            this.renderHorizonsView();
+        } else if (this.currentView === 'cascade') {
+            this.renderCascadeView();
+        }
+    }
+
+    renderHorizonsView() {
+        const horizons = ['hours', 'days', 'weeks', 'months', 'years', 'life'];
         
-        return false;
-    }
-
-    doesHorizonCascadeFromTo(sourceHorizon, targetHorizon) {
-        const hierarchy = this.horizonHierarchy;
-        return hierarchy[sourceHorizon] && hierarchy[sourceHorizon].includes(targetHorizon);
-    }
-
-    doesHorizonCascadeTo(sourceHorizon, targetHorizon) {
-        // Check if source horizon cascades to target horizon
-        const cascadePath = this.getCascadePath(sourceHorizon);
-        return cascadePath.includes(targetHorizon);
-    }
-
-    getCascadePath(horizon) {
-        // Get all horizons that this horizon cascades to
-        const path = [];
-        let current = horizon;
-        
-        while (this.horizonHierarchy[current]) {
-            path.push(...this.horizonHierarchy[current]);
-            // Move to the next level in hierarchy
-            if (this.horizonHierarchy[current].length > 0) {
-                current = this.horizonHierarchy[current][0];
+        horizons.forEach(horizon => {
+            const container = document.getElementById(`${horizon}-tasks`);
+            const tasks = this.data.tasks.filter(task => 
+                task.horizon === horizon && !task.completed
+            );
+            
+            if (tasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">No tasks yet. Click + to add one.</div>';
             } else {
-                break;
+                container.innerHTML = tasks.map(task => this.renderTaskItem(task)).join('');
             }
-        }
-        
-        return [...new Set(path)]; // Remove duplicates
+        });
     }
 
-    // Enhanced task rendering with cascade indicators
-    renderTaskItem(task, currentHorizon) {
-        const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '';
-        const priorityClass = task.priority ? `priority-${task.priority}` : '';
-        const isOriginal = task.horizon === currentHorizon;
-        const taskClass = isOriginal ? 'original' : 'cascaded';
-        
-        // Show cascade origin for cascaded tasks
-        const cascadeIndicator = !isOriginal ? 
-            `<div class="task-cascade-indicator">
-                <span class="cascade-arrow">↑</span>
-                From ${this.horizonNames[task.horizon]}
-            </div>` : '';
-
+    renderTaskItem(task) {
         return `
-            <div class="task-item ${taskClass} ${priorityClass}" data-id="${task.id}">
-                <div class="task-checkbox">
-                    <input type="checkbox" id="task-${task.id}" ${task.completed ? 'checked' : ''}>
-                    <label for="task-${task.id}" aria-label="Mark task as completed"></label>
-                </div>
+            <div class="task-item" data-id="${task.id}">
                 <div class="task-content">
                     <div class="task-title">${this.escapeHtml(task.title)}</div>
                     ${task.description ? `<div class="task-meta">${this.escapeHtml(task.description)}</div>` : ''}
                     ${task.meta ? `<div class="task-meta">${this.escapeHtml(task.meta)}</div>` : ''}
-                    ${dueDate ? `<div class="task-meta"><i class="fas fa-calendar"></i> Due ${dueDate}</div>` : ''}
-                    ${cascadeIndicator}
+                    ${task.cascadesTo ? `<div class="task-meta"><small>Cascades to: ${task.cascadesTo.join(', ')}</small></div>` : ''}
                 </div>
                 <div class="task-actions">
-                    <button class="task-btn" onclick="app.editTask('${task.id}')" aria-label="Edit task">
+                    <button class="task-btn" onclick="app.editTask('${task.id}')">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="task-btn" onclick="app.deleteTask('${task.id}')" aria-label="Delete task">
+                    <button class="task-btn" onclick="app.deleteTask('${task.id}')">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -167,368 +229,198 @@ class TimeStripeApp {
         `;
     }
 
-    // Enhanced view rendering with cascade
-    renderHorizonView(horizon) {
-        const container = document.getElementById(`${horizon}-tasks`);
-        if (!container) {
-            console.warn(`Container not found for horizon: ${horizon}`);
-            return;
-        }
-
-        try {
-            const tasks = this.getTasksForHorizon(horizon);
-            
-            if (tasks.length === 0) {
-                const message = horizon === 'life' ? 
-                    'No life goals yet. Click + to add one.' : 
-                    'No tasks yet. Click + to add one.';
-                container.innerHTML = `<div class="empty-state">${message}</div>`;
-            } else {
-                container.innerHTML = tasks.map(task => 
-                    this.renderTaskItem(task, horizon)
-                ).join('');
-                
-                // Show cascade summary
-                const originalTasks = tasks.filter(t => t.horizon === horizon).length;
-                const cascadedTasks = tasks.length - originalTasks;
-                
-                if (cascadedTasks > 0) {
-                    const summary = document.createElement('div');
-                    summary.className = 'cascade-summary';
-                    summary.innerHTML = `
-                        <small style="color: var(--text-tertiary);">
-                            Showing ${originalTasks} original + ${cascadedTasks} cascaded tasks
-                        </small>
-                    `;
-                    container.appendChild(summary);
-                }
-            }
-            
-        } catch (error) {
-            console.error(`Failed to render horizon: ${horizon}`, error);
-            container.innerHTML = '<div class="empty-state">Error loading tasks</div>';
-        }
-    }
-
-    // Enhanced navigation with cascade visualization
-    switchView(viewName) {
-        if (!viewName || viewName === this.currentView) return;
+    renderCascadeView() {
+        const horizons = ['life', 'years', 'months', 'weeks', 'days', 'hours'];
         
-        try {
-            // Update sidebar
-            document.querySelectorAll('.sidebar-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            
-            const targetNav = document.querySelector(`[data-view="${viewName}"]`);
-            if (targetNav) {
-                targetNav.classList.add('active');
-            }
-            
-            // Update views
-            document.querySelectorAll('.view').forEach(view => {
-                view.classList.remove('active');
-            });
-            
-            const targetView = document.getElementById(`${viewName}-view`);
-            if (targetView) {
-                targetView.classList.add('active');
-            }
-            
-            // Update header and cascade path
-            this.updateViewHeader(viewName);
-            this.updateCascadePath(viewName);
-            
-            this.currentView = viewName;
-            this.renderCurrentView();
-            
-            // Close mobile sidebar if open
-            if (window.innerWidth <= 768) {
-                this.toggleMobileMenu(false);
-            }
-            
-        } catch (error) {
-            this.handleCriticalError(`Failed to switch to view: ${viewName}`, error);
-        }
-    }
-
-    updateViewHeader(viewName) {
-        const viewTitle = document.getElementById('current-view-title');
-        if (viewTitle) {
-            viewTitle.textContent = this.horizonNames[viewName] || this.formatViewName(viewName);
-        }
-    }
-
-    updateCascadePath(currentHorizon) {
-        const pathContainer = document.getElementById('horizon-path');
-        if (!pathContainer) return;
-
-        const horizons = ['hours', 'days', 'weeks', 'months', 'years'];
-        const currentIndex = horizons.indexOf(currentHorizon);
-        
-        if (currentIndex === -1) {
-            pathContainer.innerHTML = ''; // Clear for non-horizon views
-            return;
-        }
-
-        pathContainer.innerHTML = horizons.map((horizon, index) => `
-            <span class="path-item ${index === currentIndex ? 'active' : ''}">
-                ${this.horizonNames[horizon]}
-            </span>
-            ${index < horizons.length - 1 ? '<span class="path-arrow">→</span>' : ''}
-        `).join('');
-    }
-
-    // Enhanced task management with cascade
-    saveTask() {
-        try {
-            const form = document.getElementById('task-form');
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
-            
-            const isEdit = !!document.getElementById('edit-task-id').value;
-            const taskId = isEdit ? document.getElementById('edit-task-id').value : this.generateId();
-            const cascade = document.getElementById('task-cascade').checked;
-            
-            const task = {
-                id: taskId,
-                title: document.getElementById('task-title').value.trim(),
-                description: document.getElementById('task-description').value.trim(),
-                horizon: document.getElementById('task-horizon').value,
-                priority: document.getElementById('task-priority').value,
-                cascade: cascade,
-                completed: false,
-                createdAt: isEdit ? this.data.tasks.find(t => t.id === taskId)?.createdAt || new Date().toISOString() : new Date().toISOString(),
-                lastModified: new Date().toISOString()
-            };
-            
-            const dueDate = document.getElementById('task-date').value;
-            if (dueDate) {
-                task.dueDate = dueDate;
-            }
-            
-            if (isEdit) {
-                const index = this.data.tasks.findIndex(t => t.id === taskId);
-                if (index !== -1) {
-                    this.data.tasks[index] = { ...this.data.tasks[index], ...task };
-                }
-            } else {
-                this.data.tasks.push(task);
-            }
-            
-            this.saveData();
-            this.closeModal('task-modal');
-            
-            // Refresh all horizon views that might be affected by cascade
-            this.refreshAllHorizonViews();
-            
-            this.showNotification(`Task ${isEdit ? 'updated' : 'added'} successfully`, 'success');
-            
-        } catch (error) {
-            this.handleCriticalError('Failed to save task', error);
-        }
-    }
-
-    refreshAllHorizonViews() {
-        const horizons = ['hours', 'days', 'weeks', 'months', 'years', 'life'];
         horizons.forEach(horizon => {
-            this.renderHorizonView(horizon);
-        });
-        
-        // Also refresh special views
-        this.renderAllTasksView();
-        this.renderCompletedView();
-    }
-
-    // Enhanced sample data with cascade examples
-    getSampleTasks() {
-        const now = new Date();
-        
-        return [
-            {
-                id: this.generateId(),
-                title: 'Complete urgent client report',
-                description: 'Finalize and send the quarterly report',
-                horizon: 'hours',
-                priority: 'high',
-                cascade: true,
-                completed: false,
-                createdAt: now.toISOString(),
-                dueDate: now.toISOString().split('T')[0]
-            },
-            {
-                id: this.generateId(),
-                title: 'Team meeting preparation',
-                description: 'Prepare agenda and materials for tomorrow meeting',
-                horizon: 'days',
-                priority: 'medium',
-                cascade: true,
-                completed: false,
-                createdAt: now.toISOString()
-            },
-            {
-                id: this.generateId(),
-                title: 'Weekly project review',
-                description: 'Review all ongoing projects and update status',
-                horizon: 'weeks',
-                priority: 'medium',
-                cascade: true,
-                completed: false,
-                createdAt: now.toISOString()
-            },
-            {
-                id: this.generateId(),
-                title: 'Monthly budget planning',
-                description: 'Plan and allocate budget for next month',
-                horizon: 'months',
-                priority: 'high',
-                cascade: true,
-                completed: false,
-                createdAt: now.toISOString()
-            },
-            {
-                id: this.generateId(),
-                title: 'Annual skill development plan',
-                description: 'Create plan for professional development this year',
-                horizon: 'years',
-                priority: 'medium',
-                cascade: false,
-                completed: false,
-                createdAt: now.toISOString()
-            },
-            {
-                id: this.generateId(),
-                title: 'Achieve financial independence',
-                description: 'Long-term goal of financial freedom',
-                horizon: 'life',
-                priority: 'high',
-                cascade: false,
-                completed: false,
-                createdAt: now.toISOString()
-            }
-        ];
-    }
-
-    // New views for all tasks and completed tasks
-    renderAllTasksView() {
-        const container = document.getElementById('all-tasks-container');
-        if (!container) return;
-
-        const tasksByHorizon = {};
-        
-        // Group tasks by horizon
-        this.data.tasks.filter(task => !task.completed).forEach(task => {
-            if (!tasksByHorizon[task.horizon]) {
-                tasksByHorizon[task.horizon] = [];
-            }
-            tasksByHorizon[task.horizon].push(task);
-        });
-
-        container.innerHTML = Object.keys(tasksByHorizon)
-            .map(horizon => `
-                <div class="horizon-group">
-                    <div class="horizon-group-header">
-                        <h4>
-                            <i class="fas fa-${this.getHorizonIcon(horizon)}"></i>
-                            ${this.horizonNames[horizon]}
-                        </h4>
-                        <span class="horizon-task-count">${tasksByHorizon[horizon].length}</span>
-                    </div>
-                    <div class="tasks-list">
-                        ${tasksByHorizon[horizon].map(task => this.renderTaskItem(task, horizon)).join('')}
-                    </div>
+            const container = document.getElementById(`cascade-${horizon}`);
+            const tasks = this.data.tasks.filter(task => 
+                task.horizon === horizon && !task.completed
+            );
+            
+            container.innerHTML = tasks.map(task => `
+                <div class="cascade-task">
+                    <strong>${this.escapeHtml(task.title)}</strong>
+                    ${task.description ? `<div>${this.escapeHtml(task.description)}</div>` : ''}
+                    ${task.cascadesTo ? `<div><small>→ ${task.cascadesTo.join(' → ')}</small></div>` : ''}
                 </div>
-            `).join('') || '<div class="empty-state">No tasks yet</div>';
+            `).join('') || '<div class="empty-state">No tasks</div>';
+        });
     }
 
-    renderCompletedView() {
-        const container = document.getElementById('completed-tasks-container');
-        if (!container) return;
+    // Task Management
+    openTaskModal(taskData = {}) {
+        const isEdit = !!taskData.id;
+        document.getElementById('task-modal-title').textContent = isEdit ? 'Edit Task' : 'Add Task';
+        document.getElementById('task-submit-text').textContent = isEdit ? 'Update Task' : 'Add Task';
 
-        const completedTasks = this.data.tasks.filter(task => task.completed);
+        if (isEdit) {
+            document.getElementById('edit-task-id').value = taskData.id;
+            document.getElementById('task-title').value = taskData.title || '';
+            document.getElementById('task-description').value = taskData.description || '';
+            document.getElementById('task-horizon').value = taskData.horizon || 'hours';
+            document.getElementById('task-priority').value = taskData.priority || 'medium';
+        } else {
+            document.getElementById('edit-task-id').value = '';
+            document.getElementById('task-form').reset();
+        }
+
+        this.openModal('task-modal');
+    }
+
+    updateCascadeOptions() {
+        const horizon = document.getElementById('task-horizon').value;
+        const cascadeGroup = document.getElementById('cascade-group');
         
-        container.innerHTML = completedTasks.length > 0 ? 
-            completedTasks.map(task => this.renderTaskItem(task, task.horizon)).join('') :
-            '<div class="empty-state">No completed tasks yet</div>';
+        if (horizon) {
+            cascadeGroup.style.display = 'block';
+            // Enable only higher-level horizons for cascading
+            const horizons = ['hours', 'days', 'weeks', 'months', 'years', 'life'];
+            const currentIndex = horizons.indexOf(horizon);
+            
+            document.querySelectorAll('input[name="cascade"]').forEach(checkbox => {
+                const targetIndex = horizons.indexOf(checkbox.value);
+                checkbox.disabled = targetIndex <= currentIndex;
+                checkbox.checked = targetIndex > currentIndex && !checkbox.disabled;
+            });
+        } else {
+            cascadeGroup.style.display = 'none';
+        }
     }
 
-    getHorizonIcon(horizon) {
-        const icons = {
-            'hours': 'clock',
-            'days': 'calendar-day',
-            'weeks': 'calendar-week',
-            'months': 'calendar-alt',
-            'years': 'calendar-star',
-            'life': 'infinity'
+    saveTask() {
+        const form = document.getElementById('task-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const isEdit = !!document.getElementById('edit-task-id').value;
+        const taskId = isEdit ? document.getElementById('edit-task-id').value : this.generateId();
+
+        // Get cascade options
+        const cascadeCheckboxes = document.querySelectorAll('input[name="cascade"]:checked');
+        const cascadesTo = Array.from(cascadeCheckboxes).map(cb => cb.value);
+
+        const task = {
+            id: taskId,
+            title: document.getElementById('task-title').value.trim(),
+            description: document.getElementById('task-description').value.trim(),
+            horizon: document.getElementById('task-horizon').value,
+            priority: document.getElementById('task-priority').value,
+            completed: false,
+            createdAt: isEdit ? this.data.tasks.find(t => t.id === taskId)?.createdAt || new Date().toISOString() : new Date().toISOString(),
+            lastModified: new Date().toISOString(),
+            cascadesTo: cascadesTo.length > 0 ? cascadesTo : undefined
         };
-        return icons[horizon] || 'tasks';
-    }
 
-    // New method for horizon info
-    openHorizonInfo() {
-        this.openModal('horizon-info-modal');
-    }
-
-    // Enhanced renderCurrentView with new views
-    renderCurrentView() {
-        try {
-            switch (this.currentView) {
-                case 'hours':
-                case 'days':
-                case 'weeks':
-                case 'months':
-                case 'years':
-                case 'life':
-                    this.renderHorizonView(this.currentView);
-                    break;
-                case 'tasks':
-                    this.renderAllTasksView();
-                    break;
-                case 'completed':
-                    this.renderCompletedView();
-                    break;
-                default:
-                    this.ensureViewContent(this.currentView);
+        if (isEdit) {
+            const index = this.data.tasks.findIndex(t => t.id === taskId);
+            if (index !== -1) {
+                this.data.tasks[index] = task;
             }
-        } catch (error) {
-            this.handleCriticalError(`Failed to render view: ${this.currentView}`, error);
+        } else {
+            this.data.tasks.push(task);
+        }
+
+        this.saveData();
+        this.closeModal('task-modal');
+        this.renderCurrentView();
+        this.showNotification(`Task ${isEdit ? 'updated' : 'added'} successfully`, 'success');
+    }
+
+    editTask(taskId) {
+        const task = this.data.tasks.find(t => t.id === taskId);
+        if (task) this.openTaskModal(task);
+    }
+
+    deleteTask(taskId) {
+        if (confirm('Are you sure you want to delete this task?')) {
+            this.data.tasks = this.data.tasks.filter(t => t.id !== taskId);
+            this.saveData();
+            this.renderCurrentView();
+            this.showNotification('Task deleted', 'success');
         }
     }
 
-    // Keep all other existing methods from the previous enhanced version
-    // (loadTheme, saveTheme, applyTheme, toggleTheme, loadData, saveData, etc.)
-    
-    // ... include all the other methods from the previous enhanced version ...
-
-}
-
-// Initialize the application
-function initializeAppWithErrorBoundary() {
-    try {
-        window.app = new TimeStripeApp();
-        if (typeof window !== 'undefined') {
-            window.TimeStripeApp = TimeStripeApp;
+    toggleTaskCompletion(checkbox) {
+        const taskId = checkbox.id.replace('task-', '');
+        const task = this.data.tasks.find(t => t.id === taskId);
+        
+        if (task) {
+            task.completed = checkbox.checked;
+            task.completedAt = checkbox.checked ? new Date().toISOString() : null;
+            this.saveData();
+            this.renderCurrentView();
         }
-    } catch (error) {
-        console.error('💥 Critical application error:', error);
-        document.body.innerHTML = `
-            <div class="error-boundary">
-                <h3>Application Error</h3>
-                <p>TimeStripe Pro failed to load. Please refresh the page.</p>
-                <button onclick="location.reload()" class="btn-primary">Reload Application</button>
-            </div>
-        `;
+    }
+
+    // Modal Management
+    openModal(modalId) {
+        document.getElementById(modalId).style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    closeAllModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+        });
+        document.body.style.overflow = '';
+    }
+
+    // Mobile Menu
+    toggleMobileMenu(show) {
+        const sidebar = document.getElementById('main-sidebar');
+        if (typeof show === 'boolean') {
+            sidebar.classList.toggle('active', show);
+        } else {
+            sidebar.classList.toggle('active');
+        }
+    }
+
+    // Utility Functions
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    updateDateDisplay() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', options);
+    }
+
+    showNotification(message, type = 'info') {
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        // Simple console notification - you can enhance this with a proper UI
+    }
+
+    addToHorizon(horizon) {
+        this.openTaskModal({ horizon: horizon });
+    }
+
+    exportData() {
+        const dataStr = JSON.stringify(this.data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `timestripe-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showNotification('Data exported successfully', 'success');
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeAppWithErrorBoundary);
-} else {
-    initializeAppWithErrorBoundary();
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = TimeStripeApp;
-}
+// Initialize the app
+window.app = new TimeStripeApp();
