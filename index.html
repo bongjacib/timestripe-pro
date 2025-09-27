@@ -43,6 +43,14 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="task-time-toggle">Schedule Time</label>
+                    <button type="button" class="time-toggle-btn" id="task-time-toggle" onclick="app.openTimeModal()">
+                        <i class="fas fa-clock"></i> Set Time & Repeat Options
+                    </button>
+                    <div id="time-summary" class="time-summary">No time set</div>
+                </div>
+
+                <div class="form-group">
                     <label for="task-horizon">Time Horizon *</label>
                     <select id="task-horizon" required onchange="app.updateCascadeOptions()">
                         <option value="">Select a horizon...</option>
@@ -83,6 +91,95 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Enhanced Time Selection Modal -->
+    <div id="time-modal" class="modal">
+        <div class="modal-content time-modal-content">
+            <div class="time-modal-header">
+                <span class="close" onclick="app.closeModal('time-modal')">&times;</span>
+                <h3 id="time-modal-title">Set Time & Repeat</h3>
+            </div>
+            
+            <div class="time-modal-body">
+                <!-- Date Display -->
+                <div class="date-display-section">
+                    <h4 id="selected-date-display">Saturday September 27</h4>
+                </div>
+
+                <!-- Time Range Selection -->
+                <div class="time-range-section">
+                    <div class="time-input-group">
+                        <label>Time Range</label>
+                        <div class="time-inputs">
+                            <div class="time-input">
+                                <input type="time" id="task-start-time" value="02:00">
+                            </div>
+                            <span class="time-separator">to</span>
+                            <div class="time-input">
+                                <input type="time" id="task-end-time" value="08:00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="time-action-buttons">
+                    <button class="time-action-btn" onclick="app.showRescheduleOptions()">
+                        <i class="fas fa-calendar-alt"></i> Reschedule
+                    </button>
+                    <button class="time-action-btn" onclick="app.toggleRepeatOptions()">
+                        <i class="fas fa-redo"></i> Repeat
+                    </button>
+                    <button class="time-action-btn danger" onclick="app.removeDateTime()">
+                        <i class="fas fa-times"></i> Remove date and time
+                    </button>
+                </div>
+
+                <!-- Repeat Options -->
+                <div class="repeat-section" id="repeat-section">
+                    <h4>DAYS HORIZON</h4>
+                    <div class="repeat-options">
+                        <button class="repeat-option" data-repeat="daily">Daily</button>
+                        <button class="repeat-option" data-repeat="weekly">Weekly</button>
+                        <button class="repeat-option" data-repeat="monthly">Monthly</button>
+                        <button class="repeat-option" data-repeat="quarterly">Quarterly</button>
+                        <button class="repeat-option" data-repeat="yearly">Yearly</button>
+                        <button class="repeat-option" data-repeat="decade">Every decade</button>
+                        <button class="repeat-option" data-repeat="custom">Custom</button>
+                        <button class="repeat-option active" data-repeat="none">Do not repeat</button>
+                    </div>
+
+                    <div class="weekday-options" id="weekday-options">
+                        <h4>DAYS HORIZON</h4>
+                        <div class="weekday-buttons">
+                            <button class="weekday-btn" data-day="monday">Monday</button>
+                            <button class="weekday-btn" data-day="tuesday">Tuesday</button>
+                            <button class="weekday-btn" data-day="wednesday">Wednesday</button>
+                            <button class="weekday-btn" data-day="thursday">Thursday</button>
+                            <button class="weekday-btn" data-day="friday">Friday</button>
+                            <button class="weekday-btn" data-day="saturday">Saturday</button>
+                            <button class="weekday-btn" data-day="sunday">Sunday</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Dates Preview -->
+                <div class="upcoming-dates">
+                    <h4>Upcoming Occurrences</h4>
+                    <div class="upcoming-list">
+                        <div class="upcoming-item">
+                            <strong>Wednesday October 1</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="time-modal-actions">
+                <button class="btn-secondary" onclick="app.closeModal('time-modal')">Cancel</button>
+                <button class="btn-primary" onclick="app.saveTimeSettings()">Save Time Settings</button>
+            </div>
         </div>
     </div>
 
