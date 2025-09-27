@@ -7,18 +7,46 @@ class TimeStripeApp {
         this.init();
     }
 
-    init() {
-        this.applyTheme();
-        this.bindEvents();
-        this.setupSampleData();
-        this.updateDateDisplay();
-        this.renderCurrentView();
-        
-        // Show welcome message
-        setTimeout(() => {
-            this.showNotification('TimeStripe Pro with Cascading Horizons is ready!', 'success');
-        }, 1000);
+   init() {
+    this.applyTheme();
+    this.bindEvents();
+    this.setupSampleData();
+    this.updateDateDisplay();
+    this.renderCurrentView();
+    
+    // Add this line
+    this.setupServiceWorker();
+    
+    // Show welcome message
+    setTimeout(() => {
+        this.showNotification('TimeStripe Pro with Cascading Horizons is ready!', 'success');
+    }, 1000);
+    // Service Worker Setup
+setupServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('✅ Service Worker registered successfully: ', registration);
+                    
+                    // Check for updates every hour
+                    setInterval(() => {
+                        registration.update();
+                    }, 60 * 60 * 1000);
+                    
+                })
+                .catch(registrationError => {
+                    console.log('❌ Service Worker registration failed: ', registrationError);
+                });
+        });
+    } else {
+        console.log('❌ Service Worker not supported in this browser');
     }
+}
+
+// ... make sure this is the last method before the closing brace
+} // This closes the TimeStripeApp class   
+}
 
     // Theme Management
     loadTheme() {
