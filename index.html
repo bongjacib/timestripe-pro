@@ -17,17 +17,20 @@
             <span class="close" onclick="app.closeModal('nav-modal')">&times;</span>
             <h3><i class="fas fa-bars"></i> Quick Navigation</h3>
             <div class="modal-nav">
-                <button class="nav-btn" onclick="app.switchView('horizons')">
-                    <i class="fas fa-layer-group"></i> Horizons
+                <button class="nav-btn" onclick="app.switchView('hours')">
+                    <i class="fas fa-clock"></i> Hours
                 </button>
-                <button class="nav-btn" onclick="app.switchView('calendar')">
-                    <i class="fas fa-calendar"></i> Calendar
+                <button class="nav-btn" onclick="app.switchView('days')">
+                    <i class="fas fa-calendar-day"></i> Days
                 </button>
-                <button class="nav-btn" onclick="app.switchView('habits')">
-                    <i class="fas fa-sync-alt"></i> Habits
+                <button class="nav-btn" onclick="app.switchView('weeks')">
+                    <i class="fas fa-calendar-week"></i> Weeks
                 </button>
-                <button class="nav-btn" onclick="app.switchView('goals')">
-                    <i class="fas fa-bullseye"></i> Goals
+                <button class="nav-btn" onclick="app.switchView('months')">
+                    <i class="fas fa-calendar-alt"></i> Months
+                </button>
+                <button class="nav-btn" onclick="app.switchView('years')">
+                    <i class="fas fa-calendar-star"></i> Years
                 </button>
             </div>
         </div>
@@ -87,11 +90,12 @@
                     <label for="task-horizon">Time Horizon *</label>
                     <select id="task-horizon" required>
                         <option value="">Select a horizon...</option>
-                        <option value="today">Today</option>
-                        <option value="week">This Week</option>
-                        <option value="month">This Month</option>
-                        <option value="year">This Year</option>
-                        <option value="life">Life Goal</option>
+                        <option value="hours">Hours (Appears in Days, Weeks, Months, Years)</option>
+                        <option value="days">Days (Appears in Weeks, Months, Years)</option>
+                        <option value="weeks">Weeks (Appears in Months, Years)</option>
+                        <option value="months">Months (Appears in Years)</option>
+                        <option value="years">Years (Stays in Years)</option>
+                        <option value="life">Life Goals (Separate)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -101,6 +105,13 @@
                         <option value="medium" selected>Medium</option>
                         <option value="high">High</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="task-cascade" checked> 
+                        Cascade to larger time horizons
+                    </label>
+                    <small>When checked, this task will appear in all larger time horizons</small>
                 </div>
                 <input type="hidden" id="edit-task-id">
                 <div class="modal-actions">
@@ -113,36 +124,23 @@
         </div>
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="modal">
+    <!-- Horizon Info Modal -->
+    <div id="horizon-info-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="app.closeModal('settings-modal')">&times;</span>
-            <h3><i class="fas fa-cog"></i> Settings</h3>
-            <div class="settings-content">
-                <div class="setting-group">
-                    <h4>Application</h4>
-                    <div class="setting-item">
-                        <label for="auto-save">Auto-save changes</label>
-                        <input type="checkbox" id="auto-save" checked>
-                    </div>
-                    <div class="setting-item">
-                        <label for="notifications">Enable notifications</label>
-                        <input type="checkbox" id="notifications">
-                    </div>
+            <span class="close" onclick="app.closeModal('horizon-info-modal')">&times;</span>
+            <h3><i class="fas fa-info-circle"></i> How Time Horizons Work</h3>
+            <div class="horizon-info">
+                <div class="info-item">
+                    <h4>🕒 Hours → Days → Weeks → Months → Years</h4>
+                    <p>Tasks cascade upward automatically. A task in <strong>Hours</strong> will also appear in <strong>Days, Weeks, Months, and Years</strong>.</p>
                 </div>
-                <div class="setting-group">
-                    <h4>Data Management</h4>
-                    <div class="setting-actions">
-                        <button class="btn-secondary" onclick="app.exportData()">
-                            <i class="fas fa-download"></i> Export Data
-                        </button>
-                        <button class="btn-secondary" onclick="app.importData()">
-                            <i class="fas fa-upload"></i> Import Data
-                        </button>
-                        <button class="btn-danger" onclick="app.clearData()">
-                            <i class="fas fa-trash"></i> Clear All Data
-                        </button>
-                    </div>
+                <div class="info-item">
+                    <h4>📊 Hierarchical Organization</h4>
+                    <p>This helps you see how small tasks contribute to larger goals over time.</p>
+                </div>
+                <div class="info-item">
+                    <h4>🎯 Life Goals are Separate</h4>
+                    <p>Life goals don't cascade and remain in their own category for long-term vision.</p>
                 </div>
             </div>
         </div>
@@ -165,37 +163,46 @@
             <div class="sidebar-header">
                 <h1><i class="fas fa-stream"></i> TimeStripe</h1>
                 <div class="sidebar-subtitle">Productivity Planner</div>
+                <button class="info-btn" onclick="app.openHorizonInfo()" title="How horizons work">
+                    <i class="fas fa-info-circle"></i>
+                </button>
             </div>
 
             <div class="sidebar-section">
-                <h3>HORIZONS</h3>
-                <div class="sidebar-item active" data-view="horizons">
+                <h3>TIME HORIZONS <i class="fas fa-arrow-up" title="Tasks flow upward"></i></h3>
+                <div class="sidebar-item active" data-view="hours">
                     <i class="fas fa-clock"></i>
                     <span>Hours</span>
+                    <span class="horizon-badge" title="Appears in Days, Weeks, Months, Years">↑</span>
                 </div>
                 <div class="sidebar-item" data-view="days">
                     <i class="fas fa-calendar-day"></i>
                     <span>Days</span>
+                    <span class="horizon-badge" title="Appears in Weeks, Months, Years">↑</span>
                 </div>
                 <div class="sidebar-item" data-view="weeks">
                     <i class="fas fa-calendar-week"></i>
                     <span>Weeks</span>
+                    <span class="horizon-badge" title="Appears in Months, Years">↑</span>
                 </div>
                 <div class="sidebar-item" data-view="months">
                     <i class="fas fa-calendar-alt"></i>
                     <span>Months</span>
+                    <span class="horizon-badge" title="Appears in Years">↑</span>
                 </div>
                 <div class="sidebar-item" data-view="years">
                     <i class="fas fa-calendar-star"></i>
                     <span>Years</span>
+                    <span class="horizon-badge" title="Stays in Years">●</span>
                 </div>
             </div>
 
             <div class="sidebar-section">
-                <h3>PINNED</h3>
-                <div class="sidebar-item" data-view="pinned">
-                    <i class="fas fa-thumbtack"></i>
-                    <span>Start here!</span>
+                <h3>LIFE & GOALS</h3>
+                <div class="sidebar-item" data-view="life">
+                    <i class="fas fa-infinity"></i>
+                    <span>Life Goals</span>
+                    <span class="horizon-badge" title="Separate category">●</span>
                 </div>
             </div>
 
@@ -205,29 +212,13 @@
                     <i class="fas fa-sticky-note"></i>
                     <span>Notes</span>
                 </div>
-                <div class="sidebar-item" data-view="boards">
-                    <i class="fas fa-columns"></i>
-                    <span>Boards</span>
-                </div>
-                <div class="sidebar-item" data-view="docs">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Docs</span>
-                </div>
                 <div class="sidebar-item" data-view="tasks">
                     <i class="fas fa-tasks"></i>
-                    <span>Tasks</span>
+                    <span>All Tasks</span>
                 </div>
-                <div class="sidebar-item" data-view="workouts">
-                    <i class="fas fa-dumbbell"></i>
-                    <span>Workout Routines</span>
-                </div>
-                <div class="sidebar-item" data-view="okr">
-                    <i class="fas fa-bullseye"></i>
-                    <span>OKR 101</span>
-                </div>
-                <div class="sidebar-item" onclick="app.openQuickAdd()">
-                    <i class="fas fa-plus"></i>
-                    <span>Add...</span>
+                <div class="sidebar-item" data-view="completed">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Completed</span>
                 </div>
             </div>
 
@@ -251,15 +242,26 @@
             <!-- Desktop Header -->
             <header class="content-header">
                 <div class="header-left">
-                    <h2 id="current-view-title">Horizons</h2>
+                    <h2 id="current-view-title">Hours</h2>
                     <div class="date-display" id="current-date"></div>
+                    <div class="horizon-path" id="horizon-path">
+                        <span class="path-item active">Hours</span>
+                        <span class="path-arrow">→</span>
+                        <span class="path-item">Days</span>
+                        <span class="path-arrow">→</span>
+                        <span class="path-item">Weeks</span>
+                        <span class="path-arrow">→</span>
+                        <span class="path-item">Months</span>
+                        <span class="path-arrow">→</span>
+                        <span class="path-item">Years</span>
+                    </div>
                 </div>
                 <div class="header-actions">
                     <button class="header-btn" onclick="app.openQuickAdd()" title="Quick Add (Ctrl+N)">
                         <i class="fas fa-plus"></i>
                     </button>
-                    <button class="header-btn" id="search-btn" title="Search (Ctrl+K)">
-                        <i class="fas fa-search"></i>
+                    <button class="header-btn" onclick="app.openHorizonInfo()" title="How horizons work">
+                        <i class="fas fa-info-circle"></i>
                     </button>
                     <button class="header-btn" onclick="app.openSettings()" title="Settings">
                         <i class="fas fa-cog"></i>
@@ -267,66 +269,118 @@
                 </div>
             </header>
 
-            <!-- Horizons View -->
-            <div id="horizons-view" class="view active">
+            <!-- Hours View -->
+            <div id="hours-view" class="view active">
                 <div class="view-header">
-                    <h3>Time Horizons</h3>
-                    <p>Organize your tasks across different time perspectives</p>
+                    <h3>Hourly Tasks <span class="view-subtitle">→ Also appears in Days, Weeks, Months, Years</span></h3>
+                    <p>Immediate tasks and urgent items for the next few hours</p>
                 </div>
                 <div class="time-horizons">
-                    <!-- Today Section -->
-                    <section class="time-section" data-horizon="today">
+                    <section class="time-section" data-horizon="hours">
                         <div class="section-header">
-                            <h4><i class="fas fa-sun"></i> Today</h4>
-                            <button class="section-add-btn" onclick="app.addToSection('today')" title="Add task for today">
+                            <h4><i class="fas fa-clock"></i> Next 24 Hours</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('hours')" title="Add hourly task">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="today-tasks">
+                        <div class="tasks-list" id="hours-tasks">
                             <!-- Dynamically populated -->
                         </div>
                     </section>
+                </div>
+            </div>
 
-                    <!-- This Week Section -->
-                    <section class="time-section" data-horizon="week">
+            <!-- Days View -->
+            <div id="days-view" class="view">
+                <div class="view-header">
+                    <h3>Daily Tasks <span class="view-subtitle">→ Also appears in Weeks, Months, Years</span></h3>
+                    <p>Today and tomorrow's tasks, including cascaded hourly tasks</p>
+                </div>
+                <div class="time-horizons">
+                    <section class="time-section" data-horizon="days">
+                        <div class="section-header">
+                            <h4><i class="fas fa-calendar-day"></i> Today & Tomorrow</h4>
+                            <button class="section-add-btn" onclick="app.addToSection('days')" title="Add daily task">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="tasks-list" id="days-tasks">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Weeks View -->
+            <div id="weeks-view" class="view">
+                <div class="view-header">
+                    <h3>Weekly Tasks <span class="view-subtitle">→ Also appears in Months, Years</span></h3>
+                    <p>This week's objectives, including cascaded hourly and daily tasks</p>
+                </div>
+                <div class="time-horizons">
+                    <section class="time-section" data-horizon="weeks">
                         <div class="section-header">
                             <h4><i class="fas fa-calendar-week"></i> This Week</h4>
-                            <button class="section-add-btn" onclick="app.addToSection('week')" title="Add task for this week">
+                            <button class="section-add-btn" onclick="app.addToSection('weeks')" title="Add weekly task">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="week-tasks">
+                        <div class="tasks-list" id="weeks-tasks">
                             <!-- Dynamically populated -->
                         </div>
                     </section>
+                </div>
+            </div>
 
-                    <!-- This Month Section -->
-                    <section class="time-section" data-horizon="month">
+            <!-- Months View -->
+            <div id="months-view" class="view">
+                <div class="view-header">
+                    <h3>Monthly Tasks <span class="view-subtitle">→ Also appears in Years</span></h3>
+                    <p>This month's goals, including cascaded tasks from smaller horizons</p>
+                </div>
+                <div class="time-horizons">
+                    <section class="time-section" data-horizon="months">
                         <div class="section-header">
                             <h4><i class="fas fa-calendar-alt"></i> This Month</h4>
-                            <button class="section-add-btn" onclick="app.addToSection('month')" title="Add task for this month">
+                            <button class="section-add-btn" onclick="app.addToSection('months')" title="Add monthly task">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="month-tasks">
+                        <div class="tasks-list" id="months-tasks">
                             <!-- Dynamically populated -->
                         </div>
                     </section>
+                </div>
+            </div>
 
-                    <!-- This Year Section -->
-                    <section class="time-section" data-horizon="year">
+            <!-- Years View -->
+            <div id="years-view" class="view">
+                <div class="view-header">
+                    <h3>Yearly Goals</h3>
+                    <p>Annual objectives and cascaded tasks from all smaller horizons</p>
+                </div>
+                <div class="time-horizons">
+                    <section class="time-section" data-horizon="years">
                         <div class="section-header">
                             <h4><i class="fas fa-calendar-star"></i> This Year</h4>
-                            <button class="section-add-btn" onclick="app.addToSection('year')" title="Add task for this year">
+                            <button class="section-add-btn" onclick="app.addToSection('years')" title="Add yearly goal">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="year-tasks">
+                        <div class="tasks-list" id="years-tasks">
                             <!-- Dynamically populated -->
                         </div>
                     </section>
+                </div>
+            </div>
 
-                    <!-- Life Goals Section -->
+            <!-- Life Goals View -->
+            <div id="life-view" class="view">
+                <div class="view-header">
+                    <h3>Life Goals</h3>
+                    <p>Long-term aspirations and lifetime objectives (does not cascade)</p>
+                </div>
+                <div class="time-horizons">
                     <section class="time-section" data-horizon="life">
                         <div class="section-header">
                             <h4><i class="fas fa-infinity"></i> Life Goals</h4>
@@ -341,52 +395,25 @@
                 </div>
             </div>
 
-            <!-- Other Views -->
-            <div id="days-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-day fa-3x"></i>
-                    <h3>Days View</h3>
-                    <p>Daily planning and scheduling</p>
+            <!-- All Tasks View -->
+            <div id="tasks-view" class="view">
+                <div class="view-header">
+                    <h3>All Tasks</h3>
+                    <p>Complete overview of all tasks across all time horizons</p>
+                </div>
+                <div class="all-tasks-container" id="all-tasks-container">
+                    <!-- Dynamically populated -->
                 </div>
             </div>
 
-            <div id="weeks-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-week fa-3x"></i>
-                    <h3>Weeks View</h3>
-                    <p>Weekly overview and planning</p>
+            <!-- Completed Tasks View -->
+            <div id="completed-view" class="view">
+                <div class="view-header">
+                    <h3>Completed Tasks</h3>
+                    <p>Archive of all completed tasks</p>
                 </div>
-            </div>
-
-            <div id="months-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-alt fa-3x"></i>
-                    <h3>Months View</h3>
-                    <p>Monthly goals and milestones</p>
-                </div>
-            </div>
-
-            <div id="years-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-calendar-star fa-3x"></i>
-                    <h3>Years View</h3>
-                    <p>Annual objectives and planning</p>
-                </div>
-            </div>
-
-            <div id="habits-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-sync-alt fa-3x"></i>
-                    <h3>Habits View</h3>
-                    <p>Track your daily routines and build streaks</p>
-                </div>
-            </div>
-
-            <div id="goals-view" class="view">
-                <div class="view-placeholder">
-                    <i class="fas fa-bullseye fa-3x"></i>
-                    <h3>Goals View</h3>
-                    <p>Set and track your long-term objectives</p>
+                <div class="completed-tasks-container" id="completed-tasks-container">
+                    <!-- Dynamically populated -->
                 </div>
             </div>
         </main>
@@ -404,12 +431,6 @@
             <span id="notification-message"></span>
             <button onclick="app.hideNotification()">&times;</button>
         </div>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay hidden">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading...</div>
     </div>
 
     <script src="app.js"></script>
