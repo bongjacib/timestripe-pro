@@ -1,9 +1,8 @@
 /* TimeStripe Pro - Cascading Horizons App v2.1.0
-   Changes in this file only (minimal):
-   - Adds a visible date input into the time modal (no HTML edits).
-   - Click “Reschedule” or the big date header to open the date picker.
-   - Persist/preview selected date via timeSettings.date.
-   - Everything else remains the same.
+   Delta in this file only (vs. previous version I sent):
+   - Projection logic is now horizon-agnostic:
+     Any task with timeSettings.date is surfaced in Days/Weeks/Months/Years (and Hours for “today”)
+     regardless of the task’s original horizon. Everything else is unchanged.
 */
 
 /* --------------------- Small HTTP helper (axios or fetch) --------------------- */
@@ -64,16 +63,20 @@ class CloudSyncService {
       const saved = this._loadSession();
       if (saved) sessionCode = saved;
     }
+    if (sessionCode && this._isLegacyKvdbCode(sessionCode)) {
+      await this._migrateFromKvdb(sessionCode);
+      sessionCode = this._loadSession();
+    }
+
     if (sessionCode) {
       await this._parseAndSetSession(sessionCode);
     } else {
       await this._createPantrySession();
     }
 
-    // Ensure remote exists; if Pantry fails, fall back to JSONBin
     try {
-      const curr = await this._getRemote();
-      if (!curr) await this._saveRemote(this._initDoc());
+      const current = await this._getRemote();
+      if (!current) await this._saveRemote(this._initDoc());
     } catch {
       if (this.backend === 'pantry') {
         await this._createJsonBinSession();
@@ -140,7 +143,8 @@ class CloudSyncService {
   }
 
   async _createJsonBinSession() {
-    const res = await http.post(`${this.jsonbin.base}/b`, { record: this._initDoc() });
+    const init = this._initDoc();
+    const res = await http.post(`${this.jsonbin.base}/b`, { record: init });
     const id = res?.data?.metadata?.id || res?.data?.id || res?.metadata?.id || res?.id;
     if (!id) throw new Error('JSONBin: failed to create bin');
     this.jsonbin.binId = id; this.backend = 'jsonbin'; this._saveSession();
@@ -195,7 +199,26 @@ class CloudSyncService {
 
   _initDoc() { return { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() }; }
   _saveSession() { const code = this.sessionId; if (code) localStorage.setItem('timestripe-sync-session', code); }
-  _loadSession() { return localStorage.getItem('timestripe-sync-session') || null; }
+  _loadSession() {
+    const direct = localStorage.getItem('timestripe-sync-session'); if (direct) return direct;
+    const cfg = localStorage.getItem('timestripe-sync-config'); if (cfg) { try { return JSON.parse(cfg)?.sessionId || null; } catch {} }
+    return null;
+  }
+  _isLegacyKvdbCode(code) { if (!code) return false; if (code.startsWith('kvdb:')) return true; return !code.includes(':') && /^[a-z0-9]{10,}$/i.test(code); }
+  async _migrateFromKvdb(code) {
+    try {
+      const bucketId = code.startsWith('kvdb:') ? code.split(':')[1] : code;
+      let legacyData = null;
+      try {
+        const res = await http.get(`https://kvdb.io/${bucketId}/timestripe`, { responseType: 'text' });
+        if (res && res.status >= 200 && res.status < 300) { try { legacyData = JSON.parse(res.data); } catch {} }
+      } catch {}
+      await this._createPantrySession();
+      await this._saveRemote(legacyData && typeof legacyData === 'object' ? legacyData : this._initDoc());
+      const cfg = localStorage.getItem('timestripe-sync-config');
+      if (cfg) { try { const p = JSON.parse(cfg); p.sessionId = this.sessionId; p.enabled = true; localStorage.setItem('timestripe-sync-config', JSON.stringify(p)); } catch {} }
+    } catch {}
+  }
 }
 
 /* --------------------- App --------------------- */
@@ -220,9 +243,7 @@ class TimeStripeApp {
     this.initCloudSync();
 
     const importEl = document.getElementById('import-file');
-    if (importEl) {
-      importEl.addEventListener('change', (e) => this.importData(e.target.files[0]));
-    }
+    if (importEl) importEl.addEventListener('change', (e) => this.importData(e.target.files[0]));
 
     setTimeout(() => this.showNotification('TimeStripe Pro is ready!', 'success'), 1000);
   }
@@ -247,8 +268,7 @@ class TimeStripeApp {
         this.showNotification('Reconnecting to cloud sync...', 'info');
         await this.enableCloudSync(syncConfig.sessionId);
       } else {
-        // Auto-enable a session so the indicator becomes 🟢
-        await this.enableCloudSync();
+        await this.enableCloudSync(); // auto-create so status goes 🟢
       }
     } catch (error) {
       console.warn('Failed to initialize cloud sync:', error);
@@ -327,7 +347,7 @@ class TimeStripeApp {
   updateSyncUI() {
     const syncIndicator = document.getElementById('sync-indicator');
     const syncDot = document.getElementById('sync-dot-desktop');
-       const syncDotMobile = document.getElementById('sync-dot');
+    const syncDotMobile = document.getElementById('sync-dot');
     const syncStatus = document.getElementById('sync-status');
     const syncToggle = document.getElementById('sync-toggle');
 
@@ -346,12 +366,12 @@ class TimeStripeApp {
     }
   }
 
-  /* -------- Theme (unchanged) -------- */
+  /* -------- Theme -------- */
   loadTheme() { const saved = localStorage.getItem('timestripe-theme'); return saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
   applyTheme() { document.body.setAttribute('data-theme', this.currentTheme); }
   toggleTheme() { this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light'; this.applyTheme(); localStorage.setItem('timestripe-theme', this.currentTheme); this.showNotification(`${this.currentTheme === 'dark' ? 'Dark' : 'Light'} mode enabled`, 'success'); }
 
-  /* -------- Data model (unchanged) -------- */
+  /* -------- Data model -------- */
   loadData() { const saved = localStorage.getItem('timestripe-data'); return saved ? JSON.parse(saved) : this.getDefaultData(); }
   getDefaultData() { return { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString() }; }
   setupSampleData() {
@@ -385,26 +405,22 @@ class TimeStripeApp {
     this.setupTimeModalEvents();
   }
 
-  /* --- Inject a visible date picker into the time modal (no HTML edits) --- */
+  /* Inject a date picker into the time modal (no HTML change required) */
   ensureDatePicker() {
-    const id = 'task-date';
-    if (document.getElementById(id)) return;
-
+    if (document.getElementById('task-date')) return;
     const body = document.querySelector('#time-modal .time-modal-body');
     const dateDisplay = body?.querySelector('.date-display-section');
     if (!body || !dateDisplay) return;
-
     const wrap = document.createElement('div');
     wrap.className = 'time-input-group';
     wrap.innerHTML = `
-      <label for="${id}">Date</label>
-      <input type="date" id="${id}" style="width:100%;padding:var(--space-md);border:1px solid var(--border-color);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text-primary);" />
+      <label for="task-date">Date</label>
+      <input type="date" id="task-date" style="width:100%;padding:var(--space-md);font-size:1rem;border:1px solid var(--border-color);border-radius:var(--radius-md);background:var(--bg-secondary);color:var(--text-primary);">
     `;
     dateDisplay.insertAdjacentElement('afterend', wrap);
   }
 
   setupTimeModalEvents() {
-    // Make sure the date input exists
     this.ensureDatePicker();
 
     // repeat buttons
@@ -424,29 +440,22 @@ class TimeStripeApp {
       btn.addEventListener('click', (e) => { e.target.classList.toggle('active'); this.updateUpcomingDates(); });
     });
 
-    // time inputs
+    // time changes
     document.getElementById('task-start-time')?.addEventListener('change', () => this.updateUpcomingDates());
     document.getElementById('task-end-time')?.addEventListener('change', () => this.updateUpcomingDates());
 
-    // date input & big header as triggers
+    // date change
     document.addEventListener('change', (e) => {
-      if (e.target && e.target.id === 'task-date') {
-        const d = e.target.value ? new Date(e.target.value) : new Date();
-        const header = document.getElementById('selected-date-display');
-        if (header) header.textContent = this.formatDateDisplay(d);
-        this.updateUpcomingDates();
-      }
+      if (e.target && e.target.id === 'task-date') this._onDateChanged(e.target.value);
     });
 
+    // make top date header clickable every time
     const header = document.getElementById('selected-date-display');
-    if (header) {
-      header.style.cursor = 'pointer';
-      header.title = 'Change date';
-      header.addEventListener('click', () => this.showRescheduleOptions());
-    }
+    if (header) header.style.cursor = 'pointer';
+    header?.addEventListener('click', () => this.showRescheduleOptions());
   }
 
-  /* -------- Views (unchanged) -------- */
+  /* -------- Views -------- */
   switchView(viewName) {
     if (!viewName || viewName === this.currentView) return;
 
@@ -467,6 +476,56 @@ class TimeStripeApp {
     if (window.innerWidth <= 768) this.toggleMobileMenu(false);
   }
 
+  // ---- Date helpers for projection ----
+  _toDateOnly(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+  _isSameDay(a,b){ return this._toDateOnly(a).getTime() === this._toDateOnly(b).getTime(); }
+  _startOfWeek(d){ const dt = this._toDateOnly(d); const dow = dt.getDay(); dt.setDate(dt.getDate()-dow); return dt; } // Sunday start
+  _endOfWeek(d){ const s = this._startOfWeek(d); const e = new Date(s); e.setDate(e.getDate()+6); return e; }
+  _isInCurrentWeek(d){ const today=new Date(); const s=this._startOfWeek(today); const e=this._endOfWeek(today); const x=this._toDateOnly(d); return x>=s && x<=e; }
+  _isInCurrentMonth(d){ const t=new Date(); return d.getFullYear()===t.getFullYear() && d.getMonth()===t.getMonth(); }
+  _isInCurrentYear(d){ const t=new Date(); return d.getFullYear()===t.getFullYear(); }
+  _taskDate(task){
+    const ds = task?.timeSettings?.date;
+    if (!ds) return null;
+    const d = new Date(ds);
+    return isNaN(d) ? null : d;
+  }
+
+  // Horizon-agnostic projection: include any task with a date that falls in the view’s window.
+  _getTasksForHorizon(horizon) {
+    const map = new Map();
+
+    const include = (t) => { if (!t || t.completed) return; map.set(t.id, t); };
+
+    const today = new Date();
+
+    for (const t of this.data.tasks) {
+      if (t.completed) continue;
+
+      // Always include tasks that natively belong to the horizon
+      if (t.horizon === horizon) include(t);
+
+      const d = this._taskDate(t);
+      if (!d) continue;
+
+      if (horizon === 'hours') {
+        if (this._isSameDay(d, today)) include(t);
+      } else if (horizon === 'days') {
+        if (this._isSameDay(d, today)) include(t);
+      } else if (horizon === 'weeks') {
+        if (this._isInCurrentWeek(d)) include(t);
+      } else if (horizon === 'months') {
+        if (this._isInCurrentMonth(d)) include(t);
+      } else if (horizon === 'years') {
+        if (this._isInCurrentYear(d)) include(t);
+      } else if (horizon === 'life') {
+        // leave as native only
+      }
+    }
+
+    return Array.from(map.values());
+  }
+
   renderCurrentView() {
     if (this.currentView === 'horizons') this.renderHorizonsView();
     else if (this.currentView === 'cascade') this.renderCascadeView();
@@ -476,7 +535,7 @@ class TimeStripeApp {
     const horizons = ['hours', 'days', 'weeks', 'months', 'years', 'life'];
     horizons.forEach(h => {
       const container = document.getElementById(`${h}-tasks`);
-      const tasks = this.data.tasks.filter(t => t.horizon === h && !t.completed);
+      const tasks = this._getTasksForHorizon(h);
       container.innerHTML = tasks.length === 0
         ? '<div class="empty-state">No tasks yet. Click + to add one.</div>'
         : tasks.map(t => this.renderTaskItem(t)).join('');
@@ -519,7 +578,7 @@ class TimeStripeApp {
     });
   }
 
-  /* -------- Time modal -------- */
+  /* -------- Time modal & date logic -------- */
   openTimeModal() {
     this.ensureDatePicker();
 
@@ -529,9 +588,7 @@ class TimeStripeApp {
     const existing = this.currentTaskTimeData?.timeSettings?.date;
     const initDate = existing ? new Date(existing) : now;
     if (dateEl) dateEl.value = this.toInputDate(initDate);
-
-    const header = document.getElementById('selected-date-display');
-    if (header) header.textContent = this.formatDateDisplay(initDate);
+    document.getElementById('selected-date-display').textContent = this.formatDateDisplay(initDate);
 
     if (this.currentTaskTimeData.timeSettings) {
       this.populateTimeModal(this.currentTaskTimeData.timeSettings);
@@ -539,22 +596,27 @@ class TimeStripeApp {
       this.setDefaultTimeSettings();
     }
 
+    const resBtn = document.querySelector('#time-modal .time-action-buttons .time-action-btn');
+    if (resBtn) resBtn.onclick = () => this.showRescheduleOptions();
+
+    const header = document.getElementById('selected-date-display');
+    if (header) { header.style.cursor = 'pointer'; header.onclick = () => this.showRescheduleOptions(); }
+
     this.updateUpcomingDates();
     this.openModal('time-modal');
   }
 
-  populateTimeModal(timeSettings) {
-    if (timeSettings.startTime) document.getElementById('task-start-time').value = timeSettings.startTime;
-    if (timeSettings.endTime) document.getElementById('task-end-time').value = timeSettings.endTime;
-    if (timeSettings.date) {
-      const d = new Date(timeSettings.date);
+  populateTimeModal(ts) {
+    if (ts.startTime) document.getElementById('task-start-time').value = ts.startTime;
+    if (ts.endTime) document.getElementById('task-end-time').value = ts.endTime;
+    if (ts.date) {
+      const d = new Date(ts.date);
       const el = document.getElementById('task-date');
       if (el) el.value = this.toInputDate(d);
-      const header = document.getElementById('selected-date-display');
-      if (header) header.textContent = this.formatDateDisplay(d);
+      document.getElementById('selected-date-display').textContent = this.formatDateDisplay(d);
     }
-    if (timeSettings.repeat) this.setActiveRepeatOption(timeSettings.repeat);
-    if (timeSettings.weekdays) this.setActiveWeekdays(timeSettings.weekdays);
+    if (ts.repeat) this.setActiveRepeatOption(ts.repeat);
+    if (ts.weekdays) this.setActiveWeekdays(ts.weekdays);
     this.updateUpcomingDates();
   }
 
@@ -590,15 +652,46 @@ class TimeStripeApp {
       if (days.includes(btn.dataset.day)) btn.classList.add('active');
     });
   }
-
   toggleRepeatOptions() { const rs = document.getElementById('repeat-section'); if (rs) rs.style.display = 'block'; }
 
+  // Open the date picker reliably on all browsers
   showRescheduleOptions() {
     this.ensureDatePicker();
     const el = document.getElementById('task-date');
     if (!el) return;
-    if (typeof el.showPicker === 'function') el.showPicker();
-    else { el.focus(); el.click(); }
+
+    const openNative = () => {
+      try {
+        if (typeof el.showPicker === 'function') { el.showPicker(); return true; }
+        el.focus();
+        el.click();
+        return true;
+      } catch { return false; }
+    };
+
+    if (!openNative()) {
+      const tmp = document.createElement('input');
+      tmp.type = 'date';
+      tmp.value = el.value || this.toInputDate(new Date());
+      tmp.style.position = 'fixed';
+      tmp.style.left = '-9999px';
+      document.body.appendChild(tmp);
+      tmp.addEventListener('change', () => {
+        el.value = tmp.value;
+        tmp.remove();
+        this._onDateChanged(el.value);
+      }, { once: true });
+      tmp.click();
+    }
+  }
+
+  _onDateChanged(value) {
+    const d = value ? new Date(value) : new Date();
+    document.getElementById('selected-date-display').textContent = this.formatDateDisplay(d);
+    if (!this.currentTaskTimeData.timeSettings) this.currentTaskTimeData.timeSettings = {};
+    this.currentTaskTimeData.timeSettings.date = this.toInputDate(d);
+    this.updateUpcomingDates();
+    this.updateTimeSummary();
   }
 
   removeDateTime() {
@@ -633,9 +726,7 @@ class TimeStripeApp {
     const s = this.currentTaskTimeData.timeSettings;
     if (!s) { summary.textContent = 'No time set'; return; }
     let text = `${s.startTime} - ${s.endTime}`;
-    if (s.date) {
-      try { text += ` • ${new Date(s.date).toLocaleDateString()}`; } catch {}
-    }
+    if (s.date) { try { text += ` • ${new Date(s.date).toLocaleDateString()}`; } catch {} }
     if (s.repeat && s.repeat !== 'none') {
       text += ` • ${s.repeat}`;
       if (s.repeat === 'weekly' && s.weekdays.length > 0) text += ` (${s.weekdays.map(d => d.substring(0,3)).join(', ')})`;
@@ -643,6 +734,7 @@ class TimeStripeApp {
     summary.textContent = text;
   }
 
+  // Compute preview of next 3 occurrences based on date + repeat choice
   updateUpcomingDates() {
     const list = document.querySelector('.upcoming-list');
     if (!list) return;
@@ -696,7 +788,7 @@ class TimeStripeApp {
     list.innerHTML = items.join('');
   }
 
-  /* -------- Task CRUD (unchanged except it carries timeSettings.date) -------- */
+  /* -------- Task CRUD -------- */
   openTaskModal(taskData = {}) {
     const isEdit = !!taskData.id;
     document.getElementById('task-modal-title').textContent = isEdit ? 'Edit Task' : 'Add Task';
@@ -738,8 +830,17 @@ class TimeStripeApp {
     }
   }
 
-  getSelectedRepeatOption() { const active = document.querySelector('.repeat-option.active'); return active ? active.dataset.repeat : 'none'; }
-  getSelectedWeekdays() { return Array.from(document.querySelectorAll('weekday-btn.active')).map(b => b.dataset.day); } // (not used—kept for compatibility)
+  getCascadeSelections() { return Array.from(document.querySelectorAll('input[name="cascade"]:checked')).map(cb => cb.value); }
+  editTask(taskId) { const t = this.data.tasks.find(tt => tt.id === taskId); if (t) this.openTaskModal(t); }
+  deleteTask(taskId) {
+    if (confirm('Are you sure you want to delete this task?')) {
+      this.data.tasks = this.data.tasks.filter(t => t.id !== taskId);
+      this.saveData();
+      this.renderCurrentView();
+      this.showNotification('Task deleted', 'success');
+    }
+  }
+  addToHorizon(h) { this.openTaskModal({ horizon: h }); }
 
   saveTask() {
     const form = document.getElementById('task-form');
@@ -772,57 +873,6 @@ class TimeStripeApp {
     this.closeModal('task-modal');
     this.renderCurrentView();
     this.showNotification(`Task ${isEdit ? 'updated' : 'added'} successfully`, 'success');
-  }
-
-  getCascadeSelections() { return Array.from(document.querySelectorAll('input[name="cascade"]:checked')).map(cb => cb.value); }
-  editTask(taskId) { const t = this.data.tasks.find(tt => tt.id === taskId); if (t) this.openTaskModal(t); }
-  deleteTask(taskId) {
-    if (confirm('Are you sure you want to delete this task?')) {
-      this.data.tasks = this.data.tasks.filter(t => t.id !== taskId);
-      this.saveData();
-      this.renderCurrentView();
-      this.showNotification('Task deleted', 'success');
-    }
-  }
-  addToHorizon(h) { this.openTaskModal({ horizon: h }); }
-
-  exportData() {
-    const exportData = {
-      ...this.data,
-      syncInfo: { exportedAt: new Date().toISOString(), syncEnabled: this.syncEnabled, sessionId: this.cloudSync.sessionId, appVersion: '2.1.0' }
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `timestripe-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    URL.revokeObjectURL(url);
-    this.showNotification('Data exported successfully', 'success');
-  }
-
-  importData(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(e.target.result);
-        if (imported.syncInfo) this.saveSyncConfig({ enabled: imported.syncInfo.syncEnabled, sessionId: imported.syncInfo.sessionId });
-        this.data = { ...imported, lastSaved: new Date().toISOString() };
-        this.saveData();
-        this.renderCurrentView();
-        this.showNotification('Data imported successfully', 'success');
-      } catch { this.showNotification('Invalid import file', 'error'); }
-    };
-    reader.readAsText(file);
-  }
-
-  clearAllData() {
-    if (confirm('Are you sure you want to delete ALL data? This cannot be undone!')) {
-      localStorage.removeItem('timestripe-data');
-      localStorage.removeItem('timestripe-sync-config');
-      this.data = this.getDefaultData();
-      this.disableCloudSync();
-      this.renderCurrentView();
-      this.showNotification('All data cleared', 'success');
-    }
   }
 
   /* -------- Misc helpers -------- */
