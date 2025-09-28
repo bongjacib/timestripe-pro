@@ -1,14 +1,13 @@
 // app.js
 // TimeStripe Pro - Cascading Horizons App v2.1.0
-// Cloud Sync: Primary backend = KVDB (public, no key), Fallback = JSONBin v3 (public, no key)
-// No other files changed.
+// Cloud Sync: KVDB (keyless) primary with JSONBin v3 (keyless) fallback
+// NOTE: Only this file changed. All other files and features remain the same.
 
 // ---------- Lightweight HTTP helper (axios preferred; fetch fallback) ----------
 const http = {
   async get(url, { headers = {}, timeout = 12000, responseType = 'json' } = {}) {
     if (typeof axios !== 'undefined') {
       const res = await axios.get(url, { headers, timeout, responseType: responseType === 'text' ? 'text' : 'json' });
-      // axios wraps text in data already; normalize
       return { status: res.status, data: res.data, headers: res.headers };
     }
     const ctl = new AbortController();
@@ -43,7 +42,6 @@ const http = {
     return { status: res.status, data, headers: Object.fromEntries(res.headers.entries()) };
   },
   async putText(url, text, { headers = {}, timeout = 12000 } = {}) {
-    // For KVDB which accepts text/plain
     if (typeof axios !== 'undefined') {
       const res = await axios.put(url, text, { headers: { 'Content-Type': 'text/plain', ...headers }, timeout });
       return { status: res.status, data: res.data, headers: res.headers };
@@ -52,7 +50,7 @@ const http = {
     const id = setTimeout(() => ctl.abort(), timeout);
     const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'text/plain', ...headers }, body: text, signal: ctl.signal });
     clearTimeout(id);
-    const data = await res.text();
+    const data = await res.text().catch(() => '');
     return { status: res.status, data, headers: Object.fromEntries(res.headers.entries()) };
   }
 };
@@ -60,19 +58,17 @@ const http = {
 // ---------- CloudSyncService with KVDB primary + JSONBin fallback (both keyless) ----------
 class CloudSyncService {
   constructor() {
-    // Backends
     this.kvdb = {
-      base: 'https://kvdb.io',  // public keyless key-value store
+      base: 'https://kvdb.io',   // public keyless key–value store
       bucketId: null,
-      key: 'timestripe'
+      key: 'timestripe'          // single key inside the bucket
     };
     this.jsonbin = {
       base: 'https://api.jsonbin.io/v3',
       binId: null
     };
 
-    // State
-    this.backend = null; // 'kvdb' or 'jsonbin'
+    this.backend = null;           // 'kvdb' | 'jsonbin'
     this.isEnabled = false;
     this.syncInterval = null;
     this.dataChangeCallbacks = [];
@@ -82,18 +78,40 @@ class CloudSyncService {
 
   // ----- Public API -----
   async enable(sessionCode = null) {
-    // Try to restore previous backend/session from localStorage if no explicit code passed
+    // Restore session if not provided
     if (!sessionCode) {
       const saved = this._loadSession();
       if (saved) sessionCode = saved;
     }
 
     if (sessionCode) {
-      // join existing session
       await this._parseAndSetSession(sessionCode);
     } else {
-      // create new session on KVDB first
-      await this._createKvdbSession();
+      // IMPORTANT FIX: do NOT POST to kvdb.io to create a bucket (CORS hides Location).
+      // Instead, generate our own bucketId and start using it immediately.
+      await this._createKvdbSessionDeterministic();
+    }
+
+    // Try a simple roundtrip to confirm backend works; fallback to JSONBin if KVDB not reachable
+    try {
+      const current = await this._getRemote();
+      if (!current) {
+        // initialize with an empty record if nothing exists yet
+        const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
+        await this._saveRemote(init);
+      }
+    } catch (e) {
+      // KVDB failed → switch to JSONBin once
+      if (this.backend === 'kvdb') {
+        try {
+          await this._createJsonBinSession();
+          const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
+          await this._saveRemote(init);
+        } catch (e2) {
+          // If JSONBin also fails, keep enabled but will operate local-only through app logic
+          console.warn('Fallback to JSONBin failed:', e2?.message || e2);
+        }
+      }
     }
 
     this.isEnabled = true;
@@ -119,18 +137,20 @@ class CloudSyncService {
       return merged;
     } catch (e) {
       console.warn('Cloud sync error:', e?.message || e);
-      // Hard fallback path: if primary fails, try switching to the other backend once
+      // Hard fallback to JSONBin once if KVDB fails
       if (this.backend === 'kvdb') {
         try {
-          console.warn('Switching to JSONBin fallback…');
           await this._createJsonBinSession();
-          const merged = await this.sync(localData);
+          const remote = await this._getRemote();
+          const merged = this._merge(localData, remote);
+          await this._saveRemote(merged);
+          this.lastSyncTime = new Date();
+          this._lastRemoteStamp = merged?.lastSaved || null;
           return merged;
         } catch (e2) {
           console.warn('JSONBin fallback failed:', e2?.message || e2);
         }
       }
-      // If everything fails, just return local data (UI still shows enabled to avoid flipping UI state)
       return localData;
     }
   }
@@ -168,24 +188,17 @@ class CloudSyncService {
       this._saveSession();
       return;
     }
-    // If no prefix, assume KVDB bucket id for convenience
+    // If no prefix assume KVDB bucket id (convenience)
     this.backend = 'kvdb';
     this.kvdb.bucketId = code;
     this._saveSession();
   }
 
-  async _createKvdbSession() {
-    // Create a new bucket: POST https://kvdb.io/ returns 201 and "Location: https://kvdb.io/<bucketId>/"
-    const res = await http.post(`${this.kvdb.base}/`, {}); // body ignored by KVDB
-    const location = res.headers?.location || res.headers?.Location;
-    if (!location) throw new Error('KVDB: failed to create bucket (no Location header)');
-    const match = location.match(/kvdb\.io\/([^/]+)/i);
-    if (!match) throw new Error('KVDB: could not parse bucket id');
-    this.kvdb.bucketId = match[1];
+  // FIXED: Deterministic KVDB bucket creation that avoids relying on Location header & CORS
+  async _createKvdbSessionDeterministic() {
+    this.kvdb.bucketId = this._randomId();
     this.backend = 'kvdb';
     this._saveSession();
-
-    // Initialize empty record
     const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
     await http.putText(`${this.kvdb.base}/${this.kvdb.bucketId}/${this.kvdb.key}`, JSON.stringify(init), {});
   }
@@ -202,10 +215,16 @@ class CloudSyncService {
 
   async _getRemote() {
     if (this.backend === 'kvdb') {
-      // GET text and parse; KVDB returns plain text
       const res = await http.get(`${this.kvdb.base}/${this.kvdb.bucketId}/${this.kvdb.key}`, { responseType: 'text' });
       if (res.status === 404) return null;
-      try { return JSON.parse(res.data); } catch { return null; }
+      try {
+        const parsed = JSON.parse(res.data);
+        // Guard against KVDB returning HTML/text when key absent
+        if (parsed && typeof parsed === 'object') return parsed;
+        return null;
+      } catch {
+        return null;
+      }
     }
     if (this.backend === 'jsonbin') {
       const res = await http.get(`${this.jsonbin.base}/b/${this.jsonbin.binId}/latest`, { headers: { 'X-Bin-Meta': 'false' } });
@@ -253,16 +272,18 @@ class CloudSyncService {
   }
 
   _saveSession() {
-    // store as "kvdb:<bucketId>" or "jsonbin:<binId>"
     const code = this.sessionId;
     if (code) localStorage.setItem('timestripe-sync-session', code);
   }
   _loadSession() {
     return localStorage.getItem('timestripe-sync-session');
   }
+  _randomId() {
+    return (Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/\./g, '');
+  }
 }
 
-// ---------- Application (unchanged features; only CloudSync internals replaced) ----------
+// ---------- Application (unchanged UI/logic; only CloudSync internals replaced) ----------
 class TimeStripeApp {
   constructor() {
     this.currentView = 'horizons';
@@ -311,7 +332,7 @@ class TimeStripeApp {
         this.showNotification('Reconnecting to cloud sync...', 'info');
         await this.enableCloudSync(syncConfig.sessionId);
       } else {
-        // Auto-enable on first run so the UI doesn't stay “⚫ Sync disabled”
+        // Auto-enable so the UI doesn’t stay “⚫ Sync disabled”
         await this.enableCloudSync();
       }
     } catch (error) {
@@ -322,9 +343,12 @@ class TimeStripeApp {
 
   async enableCloudSync(sessionId = null) {
     try {
-      this.showNotification('Setting up cloud sync...', 'info');
-      await this.cloudSync.enable(sessionId);
+      // Optimistically reflect in UI while enabling backend
       this.syncEnabled = true;
+      this.updateSyncUI();
+      this.showNotification('Setting up cloud sync...', 'info');
+
+      await this.cloudSync.enable(sessionId);
 
       // Listen for remote changes
       this.cloudSync.onDataChange((remoteData) => {
@@ -333,7 +357,7 @@ class TimeStripeApp {
         }
       });
 
-      // Initial sync (push/merge)
+      // Initial sync (merge & render)
       const merged = await this.cloudSync.sync(this.data);
       if (merged) {
         this.data = merged;
@@ -389,7 +413,7 @@ class TimeStripeApp {
 
   async createSyncSession() {
     try {
-      await this.enableCloudSync(); // creates fresh KVDB session
+      await this.enableCloudSync(); // creates KVDB session deterministically
       this.closeModal('sync-setup-modal');
     } catch {
       this.showNotification('Failed to create sync session', 'error');
@@ -775,7 +799,7 @@ class TimeStripeApp {
       this.showNotification('Task deleted', 'success');
     }
   }
-  addToHorizon(horizon) { this.openTaskModal({ horizon }); }
+  addToHorizon(h) { this.openTaskModal({ horizon: h }); }
 
   // ----- Export/Import/Clear (unchanged) -----
   exportData() {
