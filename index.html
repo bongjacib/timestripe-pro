@@ -105,7 +105,7 @@
             <div class="time-modal-body">
                 <!-- Date Display -->
                 <div class="date-display-section">
-                    <h4 id="selected-date-display">Saturday September 27</h4>
+                    <h4 id="selected-date-display">Today</h4>
                 </div>
 
                 <!-- Time Range Selection -->
@@ -114,11 +114,11 @@
                         <label>Time Range</label>
                         <div class="time-inputs">
                             <div class="time-input">
-                                <input type="time" id="task-start-time" value="02:00">
+                                <input type="time" id="task-start-time" value="09:00">
                             </div>
                             <span class="time-separator">to</span>
                             <div class="time-input">
-                                <input type="time" id="task-end-time" value="08:00">
+                                <input type="time" id="task-end-time" value="10:00">
                             </div>
                         </div>
                     </div>
@@ -139,28 +139,25 @@
 
                 <!-- Repeat Options -->
                 <div class="repeat-section" id="repeat-section">
-                    <h4>DAYS HORIZON</h4>
+                    <h4>Repeat Options</h4>
                     <div class="repeat-options">
                         <button class="repeat-option" data-repeat="daily">Daily</button>
                         <button class="repeat-option" data-repeat="weekly">Weekly</button>
                         <button class="repeat-option" data-repeat="monthly">Monthly</button>
-                        <button class="repeat-option" data-repeat="quarterly">Quarterly</button>
                         <button class="repeat-option" data-repeat="yearly">Yearly</button>
-                        <button class="repeat-option" data-repeat="decade">Every decade</button>
-                        <button class="repeat-option" data-repeat="custom">Custom</button>
                         <button class="repeat-option active" data-repeat="none">Do not repeat</button>
                     </div>
 
-                    <div class="weekday-options" id="weekday-options">
-                        <h4>DAYS HORIZON</h4>
+                    <div class="weekday-options" id="weekday-options" style="display: none;">
+                        <h4>Repeat on Days</h4>
                         <div class="weekday-buttons">
-                            <button class="weekday-btn" data-day="monday">Monday</button>
-                            <button class="weekday-btn" data-day="tuesday">Tuesday</button>
-                            <button class="weekday-btn" data-day="wednesday">Wednesday</button>
-                            <button class="weekday-btn" data-day="thursday">Thursday</button>
-                            <button class="weekday-btn" data-day="friday">Friday</button>
-                            <button class="weekday-btn" data-day="saturday">Saturday</button>
-                            <button class="weekday-btn" data-day="sunday">Sunday</button>
+                            <button class="weekday-btn" data-day="monday">Mon</button>
+                            <button class="weekday-btn" data-day="tuesday">Tue</button>
+                            <button class="weekday-btn" data-day="wednesday">Wed</button>
+                            <button class="weekday-btn" data-day="thursday">Thu</button>
+                            <button class="weekday-btn" data-day="friday">Fri</button>
+                            <button class="weekday-btn" data-day="saturday">Sat</button>
+                            <button class="weekday-btn" data-day="sunday">Sun</button>
                         </div>
                     </div>
                 </div>
@@ -170,7 +167,7 @@
                     <h4>Upcoming Occurrences</h4>
                     <div class="upcoming-list">
                         <div class="upcoming-item">
-                            <strong>Wednesday October 1</strong>
+                            <strong>Today</strong>
                         </div>
                     </div>
                 </div>
@@ -183,6 +180,78 @@
         </div>
     </div>
 
+    <!-- Cloud Sync Setup Modal -->
+    <div id="sync-setup-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('sync-setup-modal')">&times;</span>
+            <h3><i class="fas fa-cloud"></i> Enable Cloud Sync</h3>
+            <div class="sync-setup-content">
+                <p>Sync your tasks across all devices using cloud storage.</p>
+                
+                <div class="sync-option">
+                    <h4>Option 1: Create New Sync Session</h4>
+                    <p>Start a new sync session for your devices.</p>
+                    <button class="btn-primary" onclick="app.createSyncSession()">
+                        <i class="fas fa-cloud"></i> Create New Sync
+                    </button>
+                </div>
+
+                <div class="sync-option">
+                    <h4>Option 2: Join Existing Session</h4>
+                    <p>Join an existing sync session with a code.</p>
+                    <div class="sync-code-section">
+                        <input type="text" id="sync-code-input" placeholder="Enter sync code" class="sync-code-input">
+                        <button class="btn-secondary" onclick="app.joinSyncSession()">Join Session</button>
+                    </div>
+                </div>
+
+                <div class="sync-info">
+                    <h4>How it works:</h4>
+                    <ul>
+                        <li>✅ Changes sync automatically between devices</li>
+                        <li>✅ Works offline with automatic re-sync</li>
+                        <li>✅ Your data is private and secure</li>
+                        <li>✅ No account required</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Management Modal -->
+    <div id="data-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="app.closeModal('data-modal')">&times;</span>
+            <h3><i class="fas fa-database"></i> Data Management</h3>
+            <div class="data-management-content">
+                <div class="data-option">
+                    <h4>Export Data</h4>
+                    <p>Download a backup of your tasks and settings.</p>
+                    <button class="btn-primary" onclick="app.exportData()">
+                        <i class="fas fa-download"></i> Export Backup
+                    </button>
+                </div>
+                
+                <div class="data-option">
+                    <h4>Import Data</h4>
+                    <p>Restore from a previous backup.</p>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <button class="btn-secondary" onclick="document.getElementById('import-file').click()">
+                        <i class="fas fa-upload"></i> Choose File
+                    </button>
+                </div>
+                
+                <div class="data-option danger">
+                    <h4>Danger Zone</h4>
+                    <p>Permanently delete all data.</p>
+                    <button class="btn-danger" onclick="app.clearAllData()">
+                        <i class="fas fa-trash"></i> Clear All Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Mobile Header -->
         <header class="mobile-header">
@@ -190,9 +259,15 @@
                 <i class="fas fa-bars"></i>
             </button>
             <h1 class="mobile-title">TimeStripe</h1>
-            <button class="mobile-add-btn" onclick="app.openTaskModal()">
-                <i class="fas fa-plus"></i>
-            </button>
+            <div class="mobile-header-actions">
+                <button class="sync-status-mobile" id="sync-status-mobile" onclick="app.showSyncModal()" title="Sync Status">
+                    <i class="fas fa-cloud"></i>
+                    <span class="sync-dot" id="sync-dot"></span>
+                </button>
+                <button class="mobile-add-btn" onclick="app.openTaskModal()">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
         </header>
 
         <!-- Sidebar -->
@@ -238,19 +313,26 @@
                 </div>
             </div>
 
-            <div class="sidebar-section">
-                <h3>PINNED</h3>
-                <div class="sidebar-item" data-view="pinned">
-                    <i class="fas fa-thumbtack"></i>
-                    <span>Start here!</span>
-                </div>
-            </div>
-
             <div class="sidebar-footer">
                 <button class="theme-toggle" onclick="app.toggleTheme()">
                     <i class="fas fa-moon"></i>
                     <span>Dark Mode</span>
                 </button>
+                <div class="sync-section">
+                    <button class="sync-toggle" id="sync-toggle" onclick="app.showSyncModal()">
+                        <i class="fas fa-cloud"></i>
+                        <span>Cloud Sync</span>
+                    </button>
+                    <div class="sync-status" id="sync-status">
+                        Click to setup
+                    </div>
+                </div>
+                <div class="data-management-section">
+                    <button class="data-management-btn" onclick="app.showDataModal()">
+                        <i class="fas fa-database"></i>
+                        <span>Data Management</span>
+                    </button>
+                </div>
             </div>
         </nav>
 
@@ -262,6 +344,10 @@
                     <div class="date-display" id="current-date"></div>
                 </div>
                 <div class="header-actions">
+                    <button class="header-btn sync-indicator" id="sync-indicator" onclick="app.showSyncModal()" title="Sync Status">
+                        <i class="fas fa-cloud"></i>
+                        <span class="sync-dot" id="sync-dot-desktop"></span>
+                    </button>
                     <button class="header-btn" onclick="app.openTaskModal()" title="Add Task (Ctrl+N)">
                         <i class="fas fa-plus"></i>
                     </button>
@@ -301,7 +387,7 @@
                     <!-- Weeks Section -->
                     <section class="horizon-section" data-horizon="weeks">
                         <div class="section-header">
-                            <h4><i class="fas fa-calendar-week"></i> Weeks (22–28 Sep)</h4>
+                            <h4><i class="fas fa-calendar-week"></i> This Week</h4>
                             <button class="section-add-btn" onclick="app.addToHorizon('weeks')">
                                 <i class="fas fa-plus"></i>
                             </button>
@@ -313,7 +399,7 @@
                     <!-- Months Section -->
                     <section class="horizon-section" data-horizon="months">
                         <div class="section-header">
-                            <h4><i class="fas fa-calendar-alt"></i> September</h4>
+                            <h4><i class="fas fa-calendar-alt"></i> This Month</h4>
                             <button class="section-add-btn" onclick="app.addToHorizon('months')">
                                 <i class="fas fa-plus"></i>
                             </button>
@@ -325,7 +411,7 @@
                     <!-- Years Section -->
                     <section class="horizon-section" data-horizon="years">
                         <div class="section-header">
-                            <h4><i class="fas fa-calendar-star"></i> 2025</h4>
+                            <h4><i class="fas fa-calendar-star"></i> This Year</h4>
                             <button class="section-add-btn" onclick="app.addToHorizon('years')">
                                 <i class="fas fa-plus"></i>
                             </button>
@@ -388,6 +474,7 @@
         </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
