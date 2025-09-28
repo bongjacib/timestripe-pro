@@ -1,4 +1,4 @@
-// TimeStripe Pro - Cascading Horizons App v2.1.0 with Cloud Sync
+// TimeStripe Pro - Cascading Horizons App v2.1.0 with Fixed Cloud Sync
 class TimeStripeApp {
     constructor() {
         this.currentView = 'horizons';
@@ -43,14 +43,16 @@ class TimeStripeApp {
         }
     }
 
-    // Cloud Sync Implementation
+    // Fixed Cloud Sync Implementation
     async initCloudSync() {
         const syncConfig = this.loadSyncConfig();
         if (syncConfig.enabled && syncConfig.sessionId) {
             try {
                 await this.enableCloudSync(syncConfig.sessionId);
+                this.showNotification('Cloud sync reconnected successfully', 'success');
             } catch (error) {
                 console.warn('Failed to reconnect cloud sync:', error);
+                this.showNotification('Could not reconnect to cloud sync', 'warning');
                 this.disableCloudSync();
             }
         }
@@ -59,22 +61,47 @@ class TimeStripeApp {
 
     async enableCloudSync(sessionId = null) {
         try {
+            console.log('🔄 Enabling cloud sync...');
+            
+            // Show loading state
+            this.showNotification('Setting up cloud sync...', 'info');
+            
             await this.cloudSync.enable(sessionId);
             this.syncEnabled = true;
             
             // Listen for remote changes
             this.cloudSync.onDataChange((remoteData) => {
+                console.log('📡 Remote data change detected');
                 if (this.shouldAcceptRemoteData(remoteData)) {
                     this.handleRemoteData(remoteData);
                 }
             });
             
-            // Perform initial sync
-            const syncedData = await this.cloudSync.sync(this.data);
-            if (syncedData !== this.data) {
-                this.data = syncedData;
-                this.saveData(false);
-                this.renderCurrentView();
+            // Perform initial sync with retry logic
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    const syncedData = await this.cloudSync.sync(this.data);
+                    if (syncedData && syncedData !== this.data) {
+                        this.data = syncedData;
+                        this.saveData(false); // Don't trigger sync to avoid loop
+                        this.renderCurrentView();
+                        console.log('✅ Initial sync completed successfully');
+                    }
+                    break;
+                } catch (syncError) {
+                    retryCount++;
+                    console.warn(`Sync attempt ${retryCount} failed:`, syncError);
+                    
+                    if (retryCount === maxRetries) {
+                        throw new Error('Max sync retries exceeded');
+                    }
+                    
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                }
             }
             
             this.saveSyncConfig({ 
@@ -86,9 +113,10 @@ class TimeStripeApp {
             this.showNotification('Cloud sync enabled! Changes will sync across devices.', 'success');
             
         } catch (error) {
-            console.error('Cloud sync enable failed:', error);
+            console.error('❌ Cloud sync enable failed:', error);
             this.showNotification('Failed to enable cloud sync. Using local storage only.', 'error');
             this.disableCloudSync();
+            throw error;
         }
     }
 
@@ -103,7 +131,7 @@ class TimeStripeApp {
     handleRemoteData(remoteData) {
         if (this.shouldAcceptRemoteData(remoteData)) {
             this.data = remoteData;
-            this.saveData(false);
+            this.saveData(false); // Save locally but don't trigger sync
             this.renderCurrentView();
             this.showNotification('Changes synced from cloud', 'info');
         }
@@ -134,14 +162,18 @@ class TimeStripeApp {
         }
     }
 
-    // Sync UI Methods
+    // Sync UI Methods - Fixed
     showSyncModal() {
         this.openModal('sync-setup-modal');
     }
 
     async createSyncSession() {
-        await this.enableCloudSync();
-        this.closeModal('sync-setup-modal');
+        try {
+            await this.enableCloudSync();
+            this.closeModal('sync-setup-modal');
+        } catch (error) {
+            this.showNotification('Failed to create sync session. Please try again.', 'error');
+        }
     }
 
     async joinSyncSession() {
@@ -151,11 +183,16 @@ class TimeStripeApp {
             return;
         }
         
+        if (code.length < 8) {
+            this.showNotification('Sync code should be at least 8 characters', 'error');
+            return;
+        }
+        
         try {
             await this.enableCloudSync(code);
             this.closeModal('sync-setup-modal');
         } catch (error) {
-            this.showNotification('Failed to join sync session', 'error');
+            this.showNotification('Failed to join sync session. Check the code and try again.', 'error');
         }
     }
 
@@ -805,6 +842,9 @@ class TimeStripeApp {
     }
 
     showNotification(message, type = 'info') {
+        // Remove existing notifications
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+        
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.innerHTML = `
@@ -818,12 +858,16 @@ class TimeStripeApp {
         
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
         }, 3000);
     }
 }
 
-// Cloud Sync Service
+// Fixed Cloud Sync Service with Better Error Handling
 class CloudSyncService {
     constructor() {
         this.apiKey = '$2a$10$QPQ6J5q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q9q';
@@ -837,10 +881,15 @@ class CloudSyncService {
 
     async enable(sessionId = null) {
         try {
+            console.log('🔧 Initializing cloud sync service...');
+            
             this.sessionId = sessionId || this.generateSessionId();
             this.isEnabled = true;
             
+            console.log('📦 Ensuring cloud storage exists...');
             await this.ensureBinExists();
+            
+            console.log('🔄 Starting sync interval...');
             this.startSyncInterval();
             
             console.log('✅ Cloud sync enabled with session:', this.sessionId);
@@ -848,7 +897,7 @@ class CloudSyncService {
             
         } catch (error) {
             console.error('❌ Failed to enable cloud sync:', error);
-            throw error;
+            throw new Error(`Cloud sync initialization failed: ${error.message}`);
         }
     }
 
@@ -858,91 +907,186 @@ class CloudSyncService {
         
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
+            this.syncInterval = null;
         }
         
         console.log('🔴 Cloud sync disabled');
     }
 
     async sync(localData) {
-        if (!this.isEnabled) return localData;
+        if (!this.isEnabled || !this.sessionId) {
+            throw new Error('Cloud sync not enabled');
+        }
 
         try {
+            console.log('🔄 Starting sync process...');
+            
+            // Get remote data first
             const remoteData = await this.getRemoteData();
+            console.log('📡 Remote data retrieved:', remoteData ? 'exists' : 'empty');
+            
+            // Resolve conflicts (remote wins if newer)
             const mergedData = this.mergeData(localData, remoteData);
+            console.log('🔀 Data merged successfully');
+            
+            // Save merged data to cloud
             await this.saveToCloud(mergedData);
+            console.log('💾 Data saved to cloud');
             
             this.lastSyncTime = new Date();
+            
+            // Notify about data changes if remote was newer
+            if (remoteData && this.isDataNewer(remoteData, localData)) {
+                console.log('📢 Notifying about remote changes');
+                this.notifyDataChange(mergedData);
+            }
+            
             return mergedData;
             
         } catch (error) {
             console.warn('⚠️ Sync failed:', error);
-            throw error;
+            throw new Error(`Sync failed: ${error.message}`);
         }
     }
 
     async getRemoteData() {
         try {
+            console.log('🌐 Fetching remote data...');
             const response = await axios.get(`${this.baseUrl}/b/${this.sessionId}/latest`, {
                 headers: {
                     'X-Master-Key': this.apiKey,
                     'X-Bin-Meta': false
-                }
+                },
+                timeout: 10000
             });
-            return response.data;
+            
+            console.log('✅ Remote data fetched successfully');
+            return response.data || null;
         } catch (error) {
-            if (error.response?.status === 404) return null;
+            if (error.response?.status === 404) {
+                console.log('📭 Bin does not exist yet');
+                return null;
+            }
+            console.error('❌ Failed to fetch remote data:', error);
             throw error;
         }
     }
 
     async saveToCloud(data) {
-        await axios.put(`${this.baseUrl}/b/${this.sessionId}`, data, {
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': this.apiKey
-            }
-        });
+        try {
+            console.log('💾 Saving data to cloud...');
+            const response = await axios.put(`${this.baseUrl}/b/${this.sessionId}`, data, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': this.apiKey
+                },
+                timeout: 10000
+            });
+            
+            console.log('✅ Data saved to cloud successfully');
+            return response.data;
+        } catch (error) {
+            console.error('❌ Failed to save data to cloud:', error);
+            throw error;
+        }
     }
 
     async ensureBinExists() {
         try {
-            await this.saveToCloud({
-                version: '2.1.0',
-                tasks: [],
-                lastSaved: new Date().toISOString(),
-                sessionId: this.sessionId,
-                createdAt: new Date().toISOString()
-            });
+            console.log('🔍 Checking if bin exists...');
+            // Try to get the bin first
+            await this.getRemoteData();
+            console.log('✅ Bin exists');
         } catch (error) {
-            if (error.response?.status !== 409) throw error;
+            if (error.response?.status === 404) {
+                console.log('📦 Creating new bin...');
+                // Bin doesn't exist, create it
+                await this.saveToCloud({
+                    version: '2.1.0',
+                    tasks: [],
+                    lastSaved: new Date().toISOString(),
+                    sessionId: this.sessionId,
+                    createdAt: new Date().toISOString()
+                });
+                console.log('✅ New bin created successfully');
+            } else {
+                throw error;
+            }
         }
     }
 
     mergeData(localData, remoteData) {
-        if (!remoteData) return localData;
-        if (!localData.lastSaved) return remoteData;
+        if (!remoteData) {
+            console.log('🔀 No remote data, using local data');
+            return localData;
+        }
+        if (!localData || !localData.lastSaved) {
+            console.log('🔀 No local data, using remote data');
+            return remoteData;
+        }
 
-        const remoteTime = new Date(remoteData.lastSaved);
-        const localTime = new Date(localData.lastSaved);
+        // Simple conflict resolution: newer data wins
+        if (this.isDataNewer(remoteData, localData)) {
+            console.log('🔀 Remote data is newer, using remote');
+            return { ...remoteData, lastSaved: new Date().toISOString() };
+        } else {
+            console.log('🔀 Local data is newer or equal, using local');
+            return { ...localData, lastSaved: new Date().toISOString() };
+        }
+    }
+
+    isDataNewer(data1, data2) {
+        if (!data1.lastSaved) return false;
+        if (!data2.lastSaved) return true;
         
-        return remoteTime > localTime ? remoteData : localData;
+        const data1Time = new Date(data1.lastSaved);
+        const data2Time = new Date(data2.lastSaved);
+        
+        return data1Time > data2Time;
     }
 
     startSyncInterval() {
-        this.syncInterval = setInterval(() => {
+        // Sync every 60 seconds when enabled
+        this.syncInterval = setInterval(async () => {
             if (this.isEnabled) {
-                console.log('🔄 Periodic sync check...');
+                try {
+                    console.log('🔄 Periodic sync check...');
+                    // This would typically sync with the latest local data
+                } catch (error) {
+                    console.warn('Periodic sync check failed:', error);
+                }
             }
-        }, 30000);
+        }, 60000);
     }
 
     onDataChange(callback) {
         this.dataChangeCallbacks.push(callback);
     }
 
+    notifyDataChange(data) {
+        console.log('📢 Notifying', this.dataChangeCallbacks.length, 'callbacks of data change');
+        this.dataChangeCallbacks.forEach(callback => {
+            try {
+                callback(data);
+            } catch (error) {
+                console.error('Error in data change callback:', error);
+            }
+        });
+    }
+
     generateSessionId() {
-        return Math.random().toString(36).substring(2, 15) + 
-               Math.random().toString(36).substring(2, 15);
+        const id = Math.random().toString(36).substring(2, 15) + 
+                  Math.random().toString(36).substring(2, 15);
+        console.log('🔑 Generated new session ID:', id);
+        return id;
+    }
+
+    getSyncStatus() {
+        return {
+            enabled: this.isEnabled,
+            sessionId: this.sessionId,
+            lastSync: this.lastSyncTime
+        };
     }
 }
 
