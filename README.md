@@ -1,290 +1,314 @@
-TimeStripe Pro ⏰
-Advanced Time Management with Cascading Horizons
+TimeStripe Pro - Cascading Time Horizons
+https://img.shields.io/badge/Version-2.1.0-blue.svg
+https://img.shields.io/badge/PWA-Ready-green.svg
+https://img.shields.io/badge/Multi--Device-Sync-orange.svg
 
-https://img.shields.io/badge/Version-2.0.0-blue https://img.shields.io/badge/PWA-Ready-green https://img.shields.io/badge/Offline-Supported-orange
-
-A sophisticated productivity app that helps you manage tasks across different time horizons, from hours to life goals, with intelligent cascading between timeframes.
+A revolutionary time management application that organizes your tasks across cascading time horizons with seamless multi-device synchronization.
 
 🌟 Features
-🎯 Cascading Time Horizons
+🕐 Cascading Time Horizons
 Hours - Immediate tasks and appointments
 
-Days - Daily planning and routines
+Days - Daily goals and routines
 
-Weeks - Weekly goals and milestones
+Weeks - Weekly planning and objectives
 
-Months - Monthly objectives and projects
+Months - Monthly projects and milestones
 
 Years - Annual goals and visions
 
-Life - Long-term aspirations and legacy
+Life - Lifetime aspirations and legacy
 
-⏱️ Smart Time Management
-Time Range Selection - Set start and end times for tasks
+☁️ Multi-Device Cloud Sync
+Real-time synchronization across all your devices
 
-Flexible Repeating Options:
+Offline support with automatic re-sync when online
 
-Daily, Weekly, Monthly, Quarterly, Yearly
+Conflict resolution - smart merging of changes
 
-Custom weekday selection for weekly repeats
+No account required - simple session-based sharing
 
-Every decade option for long-term planning
+📱 Modern Interface
+Progressive Web App (PWA) - installable on any device
 
-Visual Time Summary - Quick overview of scheduled tasks
+Dark/Light theme - automatic system theme detection
 
-Upcoming Dates Preview - See future occurrences at a glance
+Mobile-optimized - touch-friendly interface
 
-📱 Mobile-First Design
-Touch-Friendly Interface - Optimized for mobile devices
+Keyboard shortcuts - efficient task management
 
-Full-Screen Modals - Better mobile experience
+⚡ Smart Task Management
+Time scheduling with flexible repeat options
 
-Responsive Layout - Seamless across all screen sizes
+Cascading tasks - automatically flow between horizons
 
-PWA Support - Install as a native app on any device
+Priority levels - high, medium, low priority organization
 
-🎨 User Experience
-Dark/Light Theme - Automatic theme detection
-
-Keyboard Shortcuts - Quick task creation (Ctrl+N)
-
-Drag & Drop Ready - Intuitive task organization
-
-Real-time Updates - Instant synchronization
-
-Offline Capability - Work without internet connection
-
-🔄 Cascade Visualization
-Visual Flow - See how tasks cascade between horizons
-
-Relationship Mapping - Understand task dependencies
-
-Progress Tracking - Monitor completion across timeframes
+Rich task details - descriptions, metadata, and time settings
 
 🚀 Quick Start
-Option 1: Web Version
-Simply visit the live demo URL to start using TimeStripe Pro immediately.
+Method 1: Simple File Opening
+Download all project files to a folder
 
-Option 2: Local Installation
-Download all files to a folder:
+Open index.html in your web browser
 
-index.html
+Start using TimeStripe immediately!
 
-styles.css
-
-app.js
-
-sw.js
-
-manifest.json
-
-Serve with a local server:
-
+Method 2: Local Web Server (Recommended)
 bash
-# Using Python
+# Using Python 3
 python -m http.server 8000
 
-# Using Node.js (if you have live-server)
-npx live-server
+# Using Node.js
+npx http-server
 
 # Using PHP
 php -S localhost:8000
-Open your browser to http://localhost:8000
-
-Option 3: PWA Installation
-Open the app in Chrome, Edge, or Safari
-
-Click "Install" when prompted or use the browser's install option
-
-Enjoy native app experience with offline support
-
-📋 How to Use
-Adding Tasks
-Click the + button or press Ctrl+N
-
-Enter task title and description
-
-Set time horizon (Hours, Days, Weeks, etc.)
-
-Configure time settings (optional):
-
-Set start and end times
-
-Choose repeat frequency
-
-Select specific weekdays for weekly repeats
-
-Enable cascading to higher horizons
-
-Set priority level
-
-Save to see task in the appropriate horizon
-
-Time Management
-Set Specific Times: Click "Set Time & Repeat Options" in task form
-
-Repeat Tasks: Choose from daily, weekly, monthly patterns
-
-Reschedule: Use the reschedule option to move tasks
-
-Remove Times: Clear time settings when needed
-
-Navigation
-Sidebar: Switch between different horizon views
-
-Cascade View: See the flow between time horizons
-
-Mobile Menu: Access navigation on smaller screens
-
-🛠️ Technical Features
-Progressive Web App (PWA)
-✅ Service Worker for offline functionality
-
-✅ Web App Manifest for native installation
-
-✅ Responsive design for all devices
-
-✅ Fast loading with asset caching
-
-✅ Push notification ready
-
-Data Management
-Local Storage: All data saved locally in your browser
-
-Export/Import: Backup your data as JSON files
-
-Auto-save: Changes saved automatically
-
-Sample Data: Pre-loaded examples to get started
-
-Browser Compatibility
-✅ Chrome 60+
-
-✅ Firefox 55+
-
-✅ Safari 12+
-
-✅ Edge 79+
-
-✅ Mobile browsers (iOS Safari, Chrome Mobile)
+Then visit http://localhost:8000 in your browser.
 
 📁 File Structure
 text
 timestripe-pro/
-├── index.html          # Main application HTML
-├── styles.css          # Complete styling with themes
-├── app.js              # Core application logic
-├── sw.js               # Service Worker for PWA
-├── manifest.json       # PWA manifest
-└── README.md           # This file
+├── index.html          # Main application interface
+├── styles.css          # Complete styling and themes
+├── app.js             # Core application logic
+├── sw.js              # Service Worker for PWA features
+├── manifest.json      # PWA configuration
+└── README.md          # This file
+🔧 Setup Cloud Sync
+Step 1: Enable Sync
+Click the cloud icon in the header or sidebar
+
+Choose "Create New Sync Session"
+
+Your sync session is now active!
+
+Step 2: Connect Other Devices
+On additional devices, open TimeStripe
+
+Click the cloud icon and choose "Join Existing Session"
+
+Enter the sync code from your first device
+
+All devices will now sync automatically!
+
 ⌨️ Keyboard Shortcuts
-Shortcut	Action
-Ctrl+N	Create new task
-Escape	Close modals
-Click	Navigate between views
-🎯 Use Cases
-Personal Productivity
-Daily Routines: Morning/evening routines with time blocks
+Ctrl + N (Cmd + N on Mac) - Add new task
 
-Weekly Planning: Set weekly goals that cascade to daily tasks
+Escape - Close any open modal
 
-Long-term Goals: Break down life goals into actionable steps
+Click + Drag - Reorder tasks (coming soon)
 
-Project Management
-Milestone Tracking: Map project phases across time horizons
+📊 Task Management
+Adding Tasks
+Click the + button or use Ctrl+N
 
-Team Deadlines: Coordinate tasks with specific time allocations
+Fill in task details:
 
-Progress Visualization: See how project components interrelate
+Title (required)
 
-Student Planning
-Study Schedules: Time-block study sessions with repeats
+Description (optional)
 
-Assignment Tracking: Break down large projects into weekly tasks
+Time Horizon (select from hours to life)
 
-Exam Preparation: Schedule review sessions across months
+Cascade Options (automatically flow to higher horizons)
 
-🔧 Customization
-Themes
-The app supports automatic dark/light mode detection. Toggle manually via the sidebar footer.
+Priority Level (high, medium, low)
 
-Time Zones
-All times are displayed in your local timezone. The app automatically detects and uses your system settings.
+Time Settings (schedule and repeat options)
 
-Data Export
-Export your complete task database for backup or migration:
+Time Scheduling
+Set start and end times
 
-Click the download button in the header
+Configure repeat patterns: daily, weekly, monthly, yearly
 
-Save the JSON file securely
+Select specific weekdays for weekly repeats
 
-Import by replacing local storage data
+View upcoming occurrences preview
 
-🤝 Contributing
-While this is a complete application, suggestions and improvements are welcome! Areas for enhancement:
+Cascading System
+Tasks automatically flow upward through time horizons:
 
-Additional repeat patterns
+Hourly tasks can cascade to Days
 
-Calendar integration
+Daily tasks can cascade to Weeks
 
+Weekly tasks can cascade to Months
+
+...and so on up to Life goals
+
+🌙 Themes
+TimeStripe automatically detects your system theme preference, but you can manually toggle between:
+
+Light Theme - Clean, bright interface
+
+Dark Theme - Easy on the eyes, battery efficient
+
+Toggle via the moon/sun icon in the sidebar.
+
+💾 Data Management
+Export Backup
+Click the download icon in the header
+
+Your data is saved as a JSON file
+
+Includes sync configuration for easy restoration
+
+Import Data
+Open Data Management from the sidebar
+
+Click "Choose File" and select your backup
+
+All tasks and settings are restored
+
+Clear All Data
+⚠️ Warning: This cannot be undone!
+
+Open Data Management from the sidebar
+
+Click "Clear All Data" in the Danger Zone
+
+Confirm to permanently delete everything
+
+🔄 Sync Status Indicators
+🔴 Red dot - Sync disabled
+
+🟢 Green dot - Sync active and connected
+
+Pulsing animation - Sync in progress
+
+📱 Mobile Usage
+TimeStripe is fully optimized for mobile devices:
+
+Touch-friendly buttons and controls
+
+Swipe gestures for navigation (coming soon)
+
+Mobile-optimized modals and menus
+
+PWA installable - add to home screen for app-like experience
+
+🛠️ Technical Details
+Built With
+Vanilla JavaScript - No frameworks, fast performance
+
+CSS Grid/Flexbox - Responsive design
+
+Axios - HTTP requests for cloud sync
+
+JSONBin.io - Free cloud storage backend
+
+Service Workers - Offline functionality and caching
+
+Browser Support
+✅ Chrome 60+
+
+✅ Firefox 55+
+
+✅ Safari 11+
+
+✅ Edge 79+
+
+PWA Features
+Installable on desktop and mobile
+
+Offline functionality with cached resources
+
+Push notifications (coming soon)
+
+App-like experience when installed
+
+🔒 Privacy & Security
+Your data is private - stored in your own JSONBin.io bin
+
+No personal information required
+
+End-to-end encryption via HTTPS
+
+Local storage first - works completely offline
+
+You control your data - export/delete at any time
+
+🚨 Troubleshooting
+Sync Not Working?
+Check your internet connection
+
+Verify the sync code is entered correctly
+
+Try disabling and re-enabling sync
+
+Ensure both devices are using the same version
+
+App Not Loading?
+Clear your browser cache and reload
+
+Try opening in a different browser
+
+Check that all files are in the same folder
+
+Ensure JavaScript is enabled in your browser
+
+Data Missing?
+Check if sync is enabled on all devices
+
+Look for conflict resolution notifications
+
+Restore from your latest backup
+
+Contact support if issues persist
+
+🆕 Version 2.1.0 Highlights
+✨ All-new cloud sync system
+
+📱 Enhanced mobile experience
+
+🎨 Improved dark theme
+
+⚡ Faster performance
+
+🐛 Numerous bug fixes
+
+📈 Future Roadmap
 Team collaboration features
 
-Advanced analytics
-
-Import/export to other formats
-
-📱 Mobile Tips
-Best Practices
-Use Time Blocks: Schedule tasks with specific time ranges
-
-Leverage Repeats: Set recurring tasks to save time
-
-Cascade Wisely: Let tasks flow naturally between horizons
-
-Regular Review: Check different horizon views weekly
-
-Mobile Optimization
-Touch Targets: All buttons sized for easy tapping
-
-Swipe Support: Natural mobile gestures
-
-Offline Access: Full functionality without internet
-
-PWA Benefits: App-like experience without app store
-
-🐛 Troubleshooting
-Common Issues
-Q: My tasks disappeared!
-A: Check if you cleared browser data. Use export feature regularly for backups.
-
-Q: Time selection not working on mobile
-A: Ensure you're using a modern browser. Time inputs are native browser controls.
-
-Q: App won't install as PWA
-A: Make sure you're accessing via HTTPS or localhost. Some browsers require user interaction.
-
-Q: Slow performance with many tasks
-A: The app is optimized for hundreds of tasks. For thousands, consider archiving completed tasks.
-
-Support
-For issues not covered here, check browser console for error messages and ensure all files are properly served.
-
-📄 License
-This project is provided as-is for educational and personal use. Feel free to modify and adapt for your needs.
-
-🚀 Future Roadmap
-Calendar sync integration
-
-Team sharing and collaboration
+Calendar integration with Google/Outlook
 
 Advanced analytics and reports
 
+Custom time horizons
+
+Task templates and quick adds
+
 Voice command support
 
-Cross-device synchronization
+AI-powered task suggestions
 
-Template system for common task types
+🤝 Contributing
+TimeStripe Pro is open for contributions! Areas needing help:
 
-TimeStripe Pro - Transform how you manage time across all horizons of your life! ⏰✨
+Translation to other languages
 
-"Plan your years, manage your months, organize your weeks, schedule your days, focus your hours."
+Browser compatibility testing
+
+UI/UX improvements
+
+Documentation enhancements
+
+📄 License
+This project is open source and available under the MIT License.
+
+🆘 Support
+Having issues? Here's how to get help:
+
+Check this README for troubleshooting tips
+
+Review the browser console for error messages
+
+Export your data before trying major changes
+
+Create an issue with detailed description
+
+TimeStripe Pro - Organize your time across horizons, sync across devices, and achieve your goals with clarity and purpose.
+
+"The key is not to prioritize what's on your schedule, but to schedule your priorities." - Stephen Covey
+
