@@ -1,5 +1,5 @@
-// TimeStripe Pro - Service Worker v2.0.0
-const CACHE_NAME = 'timestripe-pro-cascade-v2.0.0';
+// TimeStripe Pro - Service Worker v2.1.0
+const CACHE_NAME = 'timestripe-pro-cascade-v2.1.0';
 const STATIC_CACHE = 'timestripe-static-v2';
 const DYNAMIC_CACHE = 'timestripe-dynamic-v2';
 
@@ -10,7 +10,8 @@ const STATIC_ASSETS = [
   './styles.css',
   './app.js',
   './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+  'https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js'
 ];
 
 // Install event - cache static assets
@@ -115,8 +116,8 @@ self.addEventListener('message', (event) => {
   
   if (type === 'GET_VERSION') {
     event.ports[0]?.postMessage({ 
-      version: '2.0.0',
-      features: ['caching', 'offline', 'time-management']
+      version: '2.1.0',
+      features: ['caching', 'offline', 'time-management', 'cloud-sync']
     });
   }
 });
