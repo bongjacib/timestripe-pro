@@ -108,12 +108,6 @@
                     <h4 id="selected-date-display">Today</h4>
                 </div>
 
-                <!-- NEW: Date Picker (Reschedule) -->
-                <div class="time-input-group">
-                    <label for="task-date">Date</label>
-                    <input type="date" id="task-date">
-                </div>
-
                 <!-- Time Range Selection -->
                 <div class="time-range-section">
                     <div class="time-input-group">
@@ -132,7 +126,7 @@
 
                 <!-- Action Buttons -->
                 <div class="time-action-buttons">
-                    <button class="time-action-btn" onclick="document.getElementById('task-date').showPicker?.();">
+                    <button class="time-action-btn" onclick="app.showRescheduleOptions()">
                         <i class="fas fa-calendar-alt"></i> Reschedule
                     </button>
                     <button class="time-action-btn" onclick="app.toggleRepeatOptions()">
@@ -374,8 +368,7 @@
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="hours-tasks">
-                        </div>
+                        <div class="tasks-list" id="hours-tasks"></div>
                     </section>
 
                     <!-- Days Section -->
@@ -386,8 +379,7 @@
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="days-tasks">
-                        </div>
+                        <div class="tasks-list" id="days-tasks"></div>
                     </section>
 
                     <!-- Weeks Section -->
@@ -398,8 +390,7 @@
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="weeks-tasks">
-                        </div>
+                        <div class="tasks-list" id="weeks-tasks"></div>
                     </section>
 
                     <!-- Months Section -->
@@ -410,8 +401,7 @@
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="months-tasks">
-                        </div>
+                        <div class="tasks-list" id="months-tasks"></div>
                     </section>
 
                     <!-- Years Section -->
@@ -422,8 +412,7 @@
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="years-tasks">
-                        </div>
+                        <div class="tasks-list" id="years-tasks"></div>
                     </section>
 
                     <!-- Life Section -->
@@ -434,8 +423,7 @@
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
-                        <div class="tasks-list" id="life-tasks">
-                        </div>
+                        <div class="tasks-list" id="life-tasks"></div>
                     </section>
                 </div>
             </div>
