@@ -283,15 +283,19 @@ class TimeStripeApp {
   async initCloudSync() {
       const syncConfig = this.loadSyncConfig();
       this.updateSyncUI();
-      
-      if (syncConfig.enabled && syncConfig.sessionId) {
+
+      try {
+        if (syncConfig.enabled && syncConfig.sessionId) {
+          // Reconnect to existing session
           this.showNotification('Reconnecting to cloud sync...', 'info');
-          try {
-              await this.enableCloudSync(syncConfig.sessionId);
-          } catch (error) {
-              console.warn('Failed to reconnect cloud sync:', error);
-              this.disableCloudSync();
-          }
+          await this.enableCloudSync(syncConfig.sessionId);
+        } else {
+          // 🔧 Auto-create & enable sync on first run so UI is never stuck at "⚫ Sync disabled"
+          await this.enableCloudSync(); // creates a new public session
+        }
+      } catch (error) {
+        console.warn('Failed to initialize cloud sync:', error);
+        this.disableCloudSync();
       }
   }
 
@@ -417,13 +421,13 @@ class TimeStripeApp {
           syncDot?.classList.add('syncing');
           syncDotMobile?.classList.add('syncing');
           syncToggle?.classList.add('syncing');
-          syncStatus && (syncStatus.textContent = '🟢 Syncing with cloud');
+          if (syncStatus) syncStatus.textContent = '🟢 Syncing with cloud';
       } else {
           syncIndicator?.classList.remove('syncing');
           syncDot?.classList.remove('syncing');
           syncDotMobile?.classList.remove('syncing');
           syncToggle?.classList.remove('syncing');
-          syncStatus && (syncStatus.textContent = '⚫ Sync disabled');
+          if (syncStatus) syncStatus.textContent = '⚫ Sync disabled';
       }
   }
 
