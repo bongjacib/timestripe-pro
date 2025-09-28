@@ -1,12 +1,14 @@
-// NOTE: This file keeps all existing features.
-// Changes related to the Time modal:
-//   - Added date support (task-date input) and save it in timeSettings.date
-//   - Implemented Repeat preview + next occurrences
-//   - Hooked repeat buttons + weekday buttons to recompute preview
-//   - Reschedule button now opens the native date picker
-// CloudSyncService (GetPantry + JSONBin and kvdb migration shim) kept from previous step.
+/* TimeStripe Pro - Cascading Horizons App v2.1.0
+   Changes in this file only:
+   - Date selection works when creating/editing tasks (any horizon). A date picker is injected
+     into the time modal if it doesn’t exist, its value is persisted to task.timeSettings.date,
+     and the Upcoming preview updates accordingly.
+   - Repeat preview logic (none/daily/weekly with weekday selection/monthly/yearly).
+   - Cloud Sync: GetPantry (no key) with JSONBin fallback. Auto-create/restore session,
+     background polling, and UI state reflects 🟢 when enabled.
+*/
 
-//////////////////////// HTTP helper (same as before) ////////////////////////
+/* --------------------- Small HTTP helper (axios or fetch) --------------------- */
 const http = {
   async get(url, { headers = {}, timeout = 12000, responseType = 'json' } = {}) {
     if (typeof axios !== 'undefined') {
@@ -46,7 +48,7 @@ const http = {
   }
 };
 
-//////////////////////// CloudSyncService (unchanged from last step) ////////////////////////
+/* --------------------- CloudSyncService (Pantry → JSONBin fallback) --------------------- */
 class CloudSyncService {
   constructor() {
     this.pantry = { base: 'https://getpantry.cloud/apiv1', pantryId: null, basket: 'timestripe' };
@@ -60,6 +62,7 @@ class CloudSyncService {
   }
 
   async enable(sessionCode = null) {
+    // Load saved or migrate legacy codes
     if (!sessionCode) {
       const saved = this._loadSession();
       if (saved) sessionCode = saved;
@@ -68,21 +71,21 @@ class CloudSyncService {
       await this._migrateFromKvdb(sessionCode);
       sessionCode = this._loadSession();
     }
+
     if (sessionCode) {
       await this._parseAndSetSession(sessionCode);
     } else {
       await this._createPantrySession();
     }
 
+    // Ensure remote exists; if Pantry fails, try JSONBin
     try {
       const current = await this._getRemote();
       if (!current) await this._saveRemote(this._initDoc());
     } catch (e) {
       if (this.backend === 'pantry') {
-        try {
-          await this._createJsonBinSession();
-          await this._saveRemote(this._initDoc());
-        } catch {}
+        await this._createJsonBinSession();
+        await this._saveRemote(this._initDoc());
       }
     }
 
@@ -107,6 +110,7 @@ class CloudSyncService {
       this._lastRemoteStamp = merged?.lastSaved || null;
       return merged;
     } catch (e) {
+      // Try fallback backend if Pantry is failing
       if (this.backend === 'pantry') {
         try {
           await this._createJsonBinSession();
@@ -133,8 +137,10 @@ class CloudSyncService {
   async _parseAndSetSession(code) {
     if (code.startsWith('pantry:')) { this.backend = 'pantry'; this.pantry.pantryId = code.split(':')[1]; this._saveSession(); return; }
     if (code.startsWith('jsonbin:')) { this.backend = 'jsonbin'; this.jsonbin.binId = code.split(':')[1]; this._saveSession(); return; }
+    // Bare id -> assume pantry
     this.backend = 'pantry'; this.pantry.pantryId = code; this._saveSession();
   }
+
   async _createPantrySession() {
     const res = await http.post(`${this.pantry.base}/pantry`, { description: 'TimeStripe Pro Sync' });
     const pid = res?.data?.pantryId || res?.data?.id || res?.pantryId || res?.id;
@@ -142,6 +148,7 @@ class CloudSyncService {
     this.pantry.pantryId = pid; this.backend = 'pantry'; this._saveSession();
     await http.put(`${this.pantry.base}/pantry/${this.pantry.pantryId}/basket/${this.pantry.basket}`, this._initDoc());
   }
+
   async _createJsonBinSession() {
     const init = this._initDoc();
     const res = await http.post(`${this.jsonbin.base}/b`, { record: init });
@@ -149,6 +156,7 @@ class CloudSyncService {
     if (!id) throw new Error('JSONBin: failed to create bin');
     this.jsonbin.binId = id; this.backend = 'jsonbin'; this._saveSession();
   }
+
   async _getRemote() {
     if (this.backend === 'pantry') {
       const res = await http.get(`${this.pantry.base}/pantry/${this.pantry.pantryId}/basket/${this.pantry.basket}`);
@@ -162,6 +170,7 @@ class CloudSyncService {
     }
     return null;
   }
+
   async _saveRemote(data) {
     if (this.backend === 'pantry') {
       await http.put(`${this.pantry.base}/pantry/${this.pantry.pantryId}/basket/${this.pantry.basket}`, data);
@@ -173,11 +182,13 @@ class CloudSyncService {
     }
     throw new Error('No backend selected');
   }
+
   _merge(localData, remoteData) {
     if (!remoteData) return localData;
     if (!localData?.lastSaved) return remoteData;
     return new Date(remoteData.lastSaved) > new Date(localData.lastSaved) ? remoteData : localData;
   }
+
   _startPolling() {
     if (this.syncInterval) clearInterval(this.syncInterval);
     this.syncInterval = setInterval(async () => {
@@ -192,6 +203,7 @@ class CloudSyncService {
       } catch {}
     }, 12000);
   }
+
   _initDoc() { return { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() }; }
   _saveSession() { const code = this.sessionId; if (code) localStorage.setItem('timestripe-sync-session', code); }
   _loadSession() {
@@ -216,7 +228,7 @@ class CloudSyncService {
   }
 }
 
-//////////////////////// App ////////////////////////
+/* --------------------- App --------------------- */
 class TimeStripeApp {
   constructor() {
     this.currentView = 'horizons';
@@ -237,9 +249,11 @@ class TimeStripeApp {
     this.setupServiceWorker();
     this.initCloudSync();
 
-    document.getElementById('import-file').addEventListener('change', (e) => {
-      this.importData(e.target.files[0]);
-    });
+    // file import
+    const importEl = document.getElementById('import-file');
+    if (importEl) {
+      importEl.addEventListener('change', (e) => this.importData(e.target.files[0]));
+    }
 
     setTimeout(() => this.showNotification('TimeStripe Pro is ready!', 'success'), 1000);
   }
@@ -254,7 +268,7 @@ class TimeStripeApp {
     }
   }
 
-  // ---- Cloud Sync (same behavior) ----
+  /* -------- Cloud Sync -------- */
   async initCloudSync() {
     const syncConfig = this.loadSyncConfig();
     this.updateSyncUI();
@@ -264,7 +278,8 @@ class TimeStripeApp {
         this.showNotification('Reconnecting to cloud sync...', 'info');
         await this.enableCloudSync(syncConfig.sessionId);
       } else {
-        await this.enableCloudSync(); // auto-create session so indicator is on
+        // Auto-enable: create a session so users immediately see 🟢 and can share the code
+        await this.enableCloudSync();
       }
     } catch (error) {
       console.warn('Failed to initialize cloud sync:', error);
@@ -332,7 +347,7 @@ class TimeStripeApp {
   showSyncModal() { this.openModal('sync-setup-modal'); }
   async createSyncSession() { try { await this.enableCloudSync(); this.closeModal('sync-setup-modal'); } catch { this.showNotification('Failed to create sync session', 'error'); } }
   async joinSyncSession() {
-    const code = document.getElementById('sync-code-input').value.trim();
+    const code = document.getElementById('sync-code-input')?.value.trim();
     if (!code) return this.showNotification('Please enter a sync code', 'error');
     try { await this.enableCloudSync(code); this.closeModal('sync-setup-modal'); } catch { this.showNotification('Failed to join sync session', 'error'); }
   }
@@ -362,12 +377,12 @@ class TimeStripeApp {
     }
   }
 
-  // ---- Theme (unchanged) ----
+  /* -------- Theme (unchanged) -------- */
   loadTheme() { const saved = localStorage.getItem('timestripe-theme'); return saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
   applyTheme() { document.body.setAttribute('data-theme', this.currentTheme); }
   toggleTheme() { this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light'; this.applyTheme(); localStorage.setItem('timestripe-theme', this.currentTheme); this.showNotification(`${this.currentTheme === 'dark' ? 'Dark' : 'Light'} mode enabled`, 'success'); }
 
-  // ---- Data model (unchanged) ----
+  /* -------- Data model (unchanged) -------- */
   loadData() { const saved = localStorage.getItem('timestripe-data'); return saved ? JSON.parse(saved) : this.getDefaultData(); }
   getDefaultData() { return { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString() }; }
   setupSampleData() {
@@ -381,9 +396,9 @@ class TimeStripeApp {
     }
   }
 
-  // ---- Events / UI ----
+  /* -------- Events / UI -------- */
   bindEvents() {
-    document.getElementById('task-form').addEventListener('submit', (e) => { e.preventDefault(); this.saveTask(); });
+    document.getElementById('task-form')?.addEventListener('submit', (e) => { e.preventDefault(); this.saveTask(); });
 
     document.addEventListener('click', (e) => {
       if (e.target.closest('.sidebar-item[data-view]')) {
@@ -401,15 +416,34 @@ class TimeStripeApp {
     this.setupTimeModalEvents();
   }
 
+  /* Inject a date picker into the time modal if it’s missing (no HTML change required) */
+  ensureDatePicker() {
+    if (document.getElementById('task-date')) return;
+    const body = document.querySelector('#time-modal .time-modal-body');
+    const dateDisplay = body?.querySelector('.date-display-section');
+    if (!body || !dateDisplay) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'time-input-group';
+    wrap.innerHTML = `
+      <label for="task-date">Date</label>
+      <input type="date" id="task-date">
+    `;
+    dateDisplay.insertAdjacentElement('afterend', wrap);
+  }
+
   setupTimeModalEvents() {
+    // ensure date picker exists
+    this.ensureDatePicker();
+
     // repeat buttons
     document.querySelectorAll('.repeat-option').forEach(btn => {
       btn.addEventListener('click', (e) => {
         document.querySelectorAll('.repeat-option').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         const type = e.target.dataset.repeat;
-        document.getElementById('weekday-options').style.display = type === 'weekly' ? 'block' : 'none';
-        this.updateUpcomingDates(); // recalc preview
+        const wk = document.getElementById('weekday-options');
+        if (wk) wk.style.display = type === 'weekly' ? 'block' : 'none';
+        this.updateUpcomingDates();
       });
     });
 
@@ -419,19 +453,18 @@ class TimeStripeApp {
     });
 
     // time and date changes
-    document.getElementById('task-start-time').addEventListener('change', () => this.updateUpcomingDates());
-    document.getElementById('task-end-time').addEventListener('change', () => this.updateUpcomingDates());
-    const dateEl = document.getElementById('task-date');
-    if (dateEl) {
-      dateEl.addEventListener('change', () => {
-        const d = dateEl.value ? new Date(dateEl.value) : new Date();
+    document.getElementById('task-start-time')?.addEventListener('change', () => this.updateUpcomingDates());
+    document.getElementById('task-end-time')?.addEventListener('change', () => this.updateUpcomingDates());
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'task-date') {
+        const d = e.target.value ? new Date(e.target.value) : new Date();
         document.getElementById('selected-date-display').textContent = this.formatDateDisplay(d);
         this.updateUpcomingDates();
-      });
-    }
+      }
+    });
   }
 
-  // ---- Views (unchanged) ----
+  /* -------- Views (unchanged) -------- */
   switchView(viewName) {
     if (!viewName || viewName === this.currentView) return;
 
@@ -504,14 +537,16 @@ class TimeStripeApp {
     });
   }
 
-  // ---- Time modal ----
+  /* -------- Time modal -------- */
   openTimeModal() {
+    // Ensure date input exists (no HTML change required)
+    this.ensureDatePicker();
+
     const now = new Date();
     const dateEl = document.getElementById('task-date');
 
-    // populate date
-    const existingDate = this.currentTaskTimeData?.timeSettings?.date;
-    const initDate = existingDate ? new Date(existingDate) : now;
+    const existing = this.currentTaskTimeData?.timeSettings?.date;
+    const initDate = existing ? new Date(existing) : now;
     if (dateEl) dateEl.value = this.toInputDate(initDate);
     document.getElementById('selected-date-display').textContent = this.formatDateDisplay(initDate);
 
@@ -530,7 +565,8 @@ class TimeStripeApp {
     if (timeSettings.endTime) document.getElementById('task-end-time').value = timeSettings.endTime;
     if (timeSettings.date) {
       const d = new Date(timeSettings.date);
-      document.getElementById('task-date').value = this.toInputDate(d);
+      const el = document.getElementById('task-date');
+      if (el) el.value = this.toInputDate(d);
       document.getElementById('selected-date-display').textContent = this.formatDateDisplay(d);
     }
     if (timeSettings.repeat) this.setActiveRepeatOption(timeSettings.repeat);
@@ -544,7 +580,8 @@ class TimeStripeApp {
     const endTime = this.formatTime((now.getHours() + 1) % 24, now.getMinutes());
     document.getElementById('task-start-time').value = startTime;
     document.getElementById('task-end-time').value = endTime;
-    document.getElementById('task-date').value = this.toInputDate(now);
+    const dateEl = document.getElementById('task-date');
+    if (dateEl) dateEl.value = this.toInputDate(now);
     this.setActiveRepeatOption('none');
   }
 
@@ -560,7 +597,8 @@ class TimeStripeApp {
       btn.classList.remove('active');
       if (btn.dataset.repeat === type) btn.classList.add('active');
     });
-    document.getElementById('weekday-options').style.display = type === 'weekly' ? 'block' : 'none';
+    const wk = document.getElementById('weekday-options');
+    if (wk) wk.style.display = type === 'weekly' ? 'block' : 'none';
   }
   setActiveWeekdays(days) {
     document.querySelectorAll('.weekday-btn').forEach(btn => {
@@ -568,9 +606,13 @@ class TimeStripeApp {
       if (days.includes(btn.dataset.day)) btn.classList.add('active');
     });
   }
-  toggleRepeatOptions() { document.getElementById('repeat-section').style.display = 'block'; }
+  toggleRepeatOptions() { const rs = document.getElementById('repeat-section'); if (rs) rs.style.display = 'block'; }
 
-  showRescheduleOptions() { /* replaced by native date picker button in HTML */ }
+  showRescheduleOptions() {
+    // Use native date picker if available
+    const el = document.getElementById('task-date');
+    if (el && typeof el.showPicker === 'function') el.showPicker(); else el?.focus();
+  }
 
   removeDateTime() {
     if (confirm('Remove all time settings for this task?')) {
@@ -583,7 +625,7 @@ class TimeStripeApp {
 
   saveTimeSettings() {
     const timeSettings = {
-      date: document.getElementById('task-date').value, // yyyy-mm-dd
+      date: document.getElementById('task-date')?.value || null, // yyyy-mm-dd
       startTime: document.getElementById('task-start-time').value,
       endTime: document.getElementById('task-end-time').value,
       repeat: this.getSelectedRepeatOption(),
@@ -617,7 +659,9 @@ class TimeStripeApp {
   // Compute preview of next 3 occurrences based on date + repeat choice
   updateUpcomingDates() {
     const list = document.querySelector('.upcoming-list');
-    const baseDateStr = document.getElementById('task-date').value;
+    if (!list) return;
+
+    const baseDateStr = document.getElementById('task-date')?.value;
     const repeat = this.getSelectedRepeatOption();
     const weekdays = this.getSelectedWeekdays();
 
@@ -626,7 +670,6 @@ class TimeStripeApp {
 
     const items = [];
     const pushDate = (d) => items.push(`<div class="upcoming-item"><strong>${this.formatDateDisplay(d)}</strong></div>`);
-
     const weekdayIndex = (day) => ({sunday:0,monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6}[day]);
 
     if (repeat === 'none') {
@@ -634,12 +677,8 @@ class TimeStripeApp {
     } else if (repeat === 'daily') {
       for (let i=0;i<3;i++) { const d = new Date(startDate); d.setDate(d.getDate()+i); pushDate(d); }
     } else if (repeat === 'weekly') {
-      // produce next 3 matching weekdays from the chosen set, starting at (or after) base date
       const chosen = weekdays.map(weekdayIndex).filter(v => v!==undefined).sort((a,b)=>a-b);
-      if (chosen.length === 0) {
-        // default to the base date’s weekday
-        chosen.push(startDate.getDay());
-      }
+      if (chosen.length === 0) chosen.push(startDate.getDay());
       let d = new Date(startDate);
       while (items.length < 3) {
         for (const w of chosen) {
@@ -655,7 +694,6 @@ class TimeStripeApp {
       for (let i=0;i<3;i++) {
         const d = new Date(startDate);
         d.setMonth(d.getMonth()+i);
-        // keep day if possible; clamp to month length
         const day = startDate.getDate();
         const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
         d.setDate(Math.min(day, last));
@@ -672,7 +710,7 @@ class TimeStripeApp {
     list.innerHTML = items.join('');
   }
 
-  // ---- Task CRUD (unchanged except it will carry new timeSettings.date field) ----
+  /* -------- Task CRUD (unchanged except it carries timeSettings.date) -------- */
   openTaskModal(taskData = {}) {
     const isEdit = !!taskData.id;
     document.getElementById('task-modal-title').textContent = isEdit ? 'Edit Task' : 'Add Task';
@@ -714,7 +752,6 @@ class TimeStripeApp {
     }
   }
 
-  // ---- Helpers ----
   getSelectedRepeatOption() { const active = document.querySelector('.repeat-option.active'); return active ? active.dataset.repeat : 'none'; }
   getSelectedWeekdays() { return Array.from(document.querySelectorAll('.weekday-btn.active')).map(b => b.dataset.day); }
 
@@ -802,13 +839,14 @@ class TimeStripeApp {
     }
   }
 
-  openModal(id) { document.getElementById(id).style.display = 'block'; document.body.style.overflow = 'hidden'; }
-  closeModal(id) { document.getElementById(id).style.display = 'none'; document.body.style.overflow = ''; }
+  /* -------- Misc helpers -------- */
+  openModal(id) { const el = document.getElementById(id); if (el){ el.style.display = 'block'; document.body.style.overflow = 'hidden'; } }
+  closeModal(id) { const el = document.getElementById(id); if (el){ el.style.display = 'none'; document.body.style.overflow = ''; } }
   closeAllModals() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); document.body.style.overflow = ''; }
-  toggleMobileMenu(show) { const sidebar = document.getElementById('main-sidebar'); if (typeof show === 'boolean') sidebar.classList.toggle('active', show); else sidebar.classList.toggle('active'); }
+  toggleMobileMenu(show) { const sidebar = document.getElementById('main-sidebar'); if (sidebar){ if (typeof show === 'boolean') sidebar.classList.toggle('active', show); else sidebar.classList.toggle('active'); } }
   generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
   escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-  updateDateDisplay() { const now = new Date(); const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }; document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', opts); }
+  updateDateDisplay() { const now = new Date(); const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }; const el = document.getElementById('current-date'); if (el) el.textContent = now.toLocaleDateString('en-US', opts); }
   showNotification(msg, type='info') {
     document.querySelectorAll('.notification').forEach(n => n.remove());
     const el = document.createElement('div'); el.className = `notification notification-${type}`;
