@@ -1,6 +1,6 @@
 // app.js
 // TimeStripe Pro - Cascading Horizons App v2.1.0
-// Cloud Sync: KVDB (keyless) primary with JSONBin v3 (keyless) fallback
+// Cloud Sync: Primary backend = GetPantry (keyless), Fallback = JSONBin v3 (keyless)
 // NOTE: Only this file changed. All other files and features remain the same.
 
 // ---------- Lightweight HTTP helper (axios preferred; fetch fallback) ----------
@@ -55,20 +55,24 @@ const http = {
   }
 };
 
-// ---------- CloudSyncService with KVDB primary + JSONBin fallback (both keyless) ----------
+// ---------- CloudSyncService: GetPantry primary + JSONBin v3 fallback (both keyless) ----------
+// Includes tiny compatibility shim to AUTO-MIGRATE legacy `kvdb:` sessions to `pantry:`
 class CloudSyncService {
   constructor() {
-    this.kvdb = {
-      base: 'https://kvdb.io',   // public keyless key–value store
-      bucketId: null,
-      key: 'timestripe'          // single key inside the bucket
+    // GetPantry (keyless JSON store)
+    this.pantry = {
+      base: 'https://getpantry.cloud/apiv1',
+      pantryId: null,
+      basket: 'timestripe'
     };
+
+    // JSONBin v3 (keyless for public bins)
     this.jsonbin = {
       base: 'https://api.jsonbin.io/v3',
       binId: null
     };
 
-    this.backend = null;           // 'kvdb' | 'jsonbin'
+    this.backend = null;           // 'pantry' | 'jsonbin'
     this.isEnabled = false;
     this.syncInterval = null;
     this.dataChangeCallbacks = [];
@@ -84,31 +88,32 @@ class CloudSyncService {
       if (saved) sessionCode = saved;
     }
 
+    // AUTO-MIGRATION: detect legacy kvdb codes or bare kvdb bucket ids and upgrade to pantry
+    if (sessionCode && this._isLegacyKvdbCode(sessionCode)) {
+      await this._migrateFromKvdb(sessionCode);
+      // After migration, session is pantry:<id> stored in localStorage; reload it
+      sessionCode = this._loadSession();
+    }
+
     if (sessionCode) {
       await this._parseAndSetSession(sessionCode);
     } else {
-      // IMPORTANT FIX: do NOT POST to kvdb.io to create a bucket (CORS hides Location).
-      // Instead, generate our own bucketId and start using it immediately.
-      await this._createKvdbSessionDeterministic();
+      await this._createPantrySession();  // primary
     }
 
-    // Try a simple roundtrip to confirm backend works; fallback to JSONBin if KVDB not reachable
+    // try roundtrip; if pantry/jsonbin unreachable, we still keep app usable (local only)
     try {
       const current = await this._getRemote();
       if (!current) {
-        // initialize with an empty record if nothing exists yet
-        const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
+        const init = this._initDoc();
         await this._saveRemote(init);
       }
     } catch (e) {
-      // KVDB failed → switch to JSONBin once
-      if (this.backend === 'kvdb') {
+      if (this.backend === 'pantry') {
         try {
           await this._createJsonBinSession();
-          const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
-          await this._saveRemote(init);
+          await this._saveRemote(this._initDoc());
         } catch (e2) {
-          // If JSONBin also fails, keep enabled but will operate local-only through app logic
           console.warn('Fallback to JSONBin failed:', e2?.message || e2);
         }
       }
@@ -137,8 +142,7 @@ class CloudSyncService {
       return merged;
     } catch (e) {
       console.warn('Cloud sync error:', e?.message || e);
-      // Hard fallback to JSONBin once if KVDB fails
-      if (this.backend === 'kvdb') {
+      if (this.backend === 'pantry') {
         try {
           await this._createJsonBinSession();
           const remote = await this._getRemote();
@@ -160,7 +164,7 @@ class CloudSyncService {
   }
 
   get sessionId() {
-    if (this.backend === 'kvdb' && this.kvdb.bucketId) return `kvdb:${this.kvdb.bucketId}`;
+    if (this.backend === 'pantry' && this.pantry.pantryId) return `pantry:${this.pantry.pantryId}`;
     if (this.backend === 'jsonbin' && this.jsonbin.binId) return `jsonbin:${this.jsonbin.binId}`;
     return null;
   }
@@ -176,9 +180,9 @@ class CloudSyncService {
 
   // ----- Backend orchestration -----
   async _parseAndSetSession(code) {
-    if (code.startsWith('kvdb:')) {
-      this.backend = 'kvdb';
-      this.kvdb.bucketId = code.split(':')[1];
+    if (code.startsWith('pantry:')) {
+      this.backend = 'pantry';
+      this.pantry.pantryId = code.split(':')[1];
       this._saveSession();
       return;
     }
@@ -188,23 +192,27 @@ class CloudSyncService {
       this._saveSession();
       return;
     }
-    // If no prefix assume KVDB bucket id (convenience)
-    this.backend = 'kvdb';
-    this.kvdb.bucketId = code;
+    // If no prefix assume a GetPantry pantryId
+    this.backend = 'pantry';
+    this.pantry.pantryId = code;
     this._saveSession();
   }
 
-  // FIXED: Deterministic KVDB bucket creation that avoids relying on Location header & CORS
-  async _createKvdbSessionDeterministic() {
-    this.kvdb.bucketId = this._randomId();
-    this.backend = 'kvdb';
+  async _createPantrySession() {
+    // Create a new pantry (keyless). Response includes pantryId.
+    const res = await http.post(`${this.pantry.base}/pantry`, { description: 'TimeStripe Pro Sync' });
+    const pid = res?.data?.pantryId || res?.data?.id || res?.pantryId || res?.id;
+    if (!pid) throw new Error('GetPantry: failed to create pantry');
+    this.pantry.pantryId = pid;
+    this.backend = 'pantry';
     this._saveSession();
-    const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
-    await http.putText(`${this.kvdb.base}/${this.kvdb.bucketId}/${this.kvdb.key}`, JSON.stringify(init), {});
+
+    // Initialize basket
+    await http.put(`${this.pantry.base}/pantry/${this.pantry.pantryId}/basket/${this.pantry.basket}`, this._initDoc());
   }
 
   async _createJsonBinSession() {
-    const init = { version: '2.1.0', tasks: [], lastSaved: new Date().toISOString(), createdAt: new Date().toISOString() };
+    const init = this._initDoc();
     const res = await http.post(`${this.jsonbin.base}/b`, { record: init });
     const id = res?.data?.metadata?.id || res?.data?.id || res?.metadata?.id || res?.id;
     if (!id) throw new Error('JSONBin: failed to create bin');
@@ -214,17 +222,11 @@ class CloudSyncService {
   }
 
   async _getRemote() {
-    if (this.backend === 'kvdb') {
-      const res = await http.get(`${this.kvdb.base}/${this.kvdb.bucketId}/${this.kvdb.key}`, { responseType: 'text' });
+    if (this.backend === 'pantry') {
+      const url = `${this.pantry.base}/pantry/${this.pantry.pantryId}/basket/${this.pantry.basket}`;
+      const res = await http.get(url);
       if (res.status === 404) return null;
-      try {
-        const parsed = JSON.parse(res.data);
-        // Guard against KVDB returning HTML/text when key absent
-        if (parsed && typeof parsed === 'object') return parsed;
-        return null;
-      } catch {
-        return null;
-      }
+      return (res && typeof res.data === 'object') ? res.data : null;
     }
     if (this.backend === 'jsonbin') {
       const res = await http.get(`${this.jsonbin.base}/b/${this.jsonbin.binId}/latest`, { headers: { 'X-Bin-Meta': 'false' } });
@@ -235,12 +237,13 @@ class CloudSyncService {
   }
 
   async _saveRemote(data) {
-    if (this.backend === 'kvdb') {
-      await http.putText(`${this.kvdb.base}/${this.kvdb.bucketId}/${this.kvdb.key}`, JSON.stringify(data), {});
+    if (this.backend === 'pantry') {
+      const url = `${this.pantry.base}/pantry/${this.pantry.pantryId}/basket/${this.pantry.basket}`;
+      await http.put(url, data);
       return;
     }
     if (this.backend === 'jsonbin') {
-      await http.put(`${this.jsonbin.base}/b/${this.jsonbin.binId}`, { record: data }, {});
+      await http.put(`${this.jsonbin.base}/b/${this.jsonbin.binId}`, { record: data });
       return;
     }
     throw new Error('No backend selected');
@@ -268,7 +271,16 @@ class CloudSyncService {
       } catch (e) {
         console.warn('Background sync failed:', e?.message || e);
       }
-    }, 15000);
+    }, 12000);
+  }
+
+  _initDoc() {
+    return {
+      version: '2.1.0',
+      tasks: [],
+      lastSaved: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
   }
 
   _saveSession() {
@@ -276,10 +288,60 @@ class CloudSyncService {
     if (code) localStorage.setItem('timestripe-sync-session', code);
   }
   _loadSession() {
-    return localStorage.getItem('timestripe-sync-session');
+    // Prefer explicit session key; if missing, try legacy config object
+    const direct = localStorage.getItem('timestripe-sync-session');
+    if (direct) return direct;
+
+    const cfg = localStorage.getItem('timestripe-sync-config');
+    if (cfg) {
+      try {
+        const parsed = JSON.parse(cfg);
+        return parsed?.sessionId || null;
+      } catch (_) { /* ignore */ }
+    }
+    return null;
   }
-  _randomId() {
-    return (Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/\./g, '');
+
+  // ----- LEGACY SHIM: Detect & migrate old `kvdb:` sessions transparently -----
+  _isLegacyKvdbCode(code) {
+    if (!code) return false;
+    if (code.startsWith('kvdb:')) return true;
+    // Bare bucket id heuristic: kvdb ids were base36-ish strings length >= 10 without colon
+    return !code.includes(':') && /^[a-z0-9]{10,}$/i.test(code);
+  }
+
+  async _migrateFromKvdb(code) {
+    try {
+      const bucketId = code.startsWith('kvdb:') ? code.split(':')[1] : code;
+      // 1) Try read legacy data from KVDB
+      let legacyData = null;
+      try {
+        const res = await http.get(`https://kvdb.io/${bucketId}/timestripe`, { responseType: 'text' });
+        if (res && res.status >= 200 && res.status < 300) {
+          try { legacyData = JSON.parse(res.data); } catch { legacyData = null; }
+        }
+      } catch (_) { /* ignore, proceed with empty */ }
+
+      // 2) Create new Pantry session and write legacy data (or init doc)
+      await this._createPantrySession(); // sets backend + pantryId + saves session
+      const toWrite = legacyData && typeof legacyData === 'object' ? legacyData : this._initDoc();
+      await this._saveRemote(toWrite);
+
+      // 3) Update old config store if present to point to new pantry session
+      const cfg = localStorage.getItem('timestripe-sync-config');
+      if (cfg) {
+        try {
+          const parsed = JSON.parse(cfg);
+          parsed.sessionId = this.sessionId; // pantry:<id>
+          parsed.enabled = true;
+          localStorage.setItem('timestripe-sync-config', JSON.stringify(parsed));
+        } catch (_) { /* ignore */ }
+      }
+      console.log('✅ Migrated legacy kvdb session to', this.sessionId);
+    } catch (e) {
+      console.warn('KVDB migration failed:', e?.message || e);
+      // If migration fails, just continue; normal enable() flow will create a fresh pantry later.
+    }
   }
 }
 
@@ -413,7 +475,7 @@ class TimeStripeApp {
 
   async createSyncSession() {
     try {
-      await this.enableCloudSync(); // creates KVDB session deterministically
+      await this.enableCloudSync(); // creates GetPantry session
       this.closeModal('sync-setup-modal');
     } catch {
       this.showNotification('Failed to create sync session', 'error');
